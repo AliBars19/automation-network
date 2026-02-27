@@ -1,1 +1,10 @@
 Research-Documents
+
+# Autopost — secrets and generated files
+autopost/.env
+autopost/data/autopost.db
+autopost/data/media/
+autopost/logs/
+autopost/__pycache__/
+autopost/**/__pycache__/
+autopost/**/*.pyc

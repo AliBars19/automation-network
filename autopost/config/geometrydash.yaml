@@ -1,0 +1,70 @@
+niche: geometrydash
+account:
+  env_prefix: GD  # loads GD_API_KEY, GD_API_SECRET, GD_ACCESS_TOKEN, GD_ACCESS_TOKEN_SECRET
+
+# ── Content sources ────────────────────────────────────────────────────────────
+sources:
+
+  - name: r/geometrydash
+    type: reddit
+    subreddit: geometrydash
+    min_score: 100
+    poll_interval: 300          # 5 min
+
+  - name: Pointercrate Demon List
+    type: api
+    collector: pointercrate
+    base_url: https://pointercrate.com/api/v2
+    poll_interval: 600          # 10 min
+
+  - name: GDBrowser
+    type: api
+    collector: gdbrowser
+    base_url: https://gdbrowser.com/api
+    poll_interval: 900          # 15 min — daily level, weekly demon, rated levels
+
+  - name: Dashword.net
+    type: scraper
+    url: https://dashword.net
+    poll_interval: 1800         # 30 min
+
+  - name: "@RobTopGames"
+    type: twitter
+    account_id: RobTopGames
+    poll_interval: 300          # 5 min — rare but critical
+
+  - name: GD YouTube — EVW
+    type: youtube
+    channel_id: UCKlPl6bPJbvt9lQMnl2LiFQ
+    poll_interval: 1800
+
+  - name: GD YouTube — Wulzy
+    type: youtube
+    channel_id: UCodB8t2s6PuFqxrqHFzUKsQ
+    poll_interval: 1800
+
+  - name: GD YouTube — GD Colon
+    type: youtube
+    channel_id: UCyPtPvI3ntpCPMIXCRZVg1A
+    poll_interval: 1800
+
+  - name: Geode Mods (GitHub)
+    type: api
+    collector: github
+    repo: geode-sdk/geode
+    poll_interval: 3600         # 60 min
+
+# ── Posting schedule ───────────────────────────────────────────────────────────
+posting:
+  min_interval_seconds: 1200
+  max_interval_seconds: 3600
+  max_daily_posts: 15
+  breaking_news_override: true
+
+# ── Hashtags by content type ───────────────────────────────────────────────────
+hashtags:
+  default:      ["#GeometryDash"]
+  demon_list:   ["#GeometryDash", "#DemonList"]
+  game_update:  ["#GeometryDash", "#GDUpdate"]
+  level_rated:  ["#GeometryDash", "#GDLevel"]
+  mod_update:   ["#GeometryDash", "#Geode"]

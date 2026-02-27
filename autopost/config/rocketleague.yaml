@@ -1,0 +1,63 @@
+niche: rocketleague
+account:
+  env_prefix: RL  # loads RL_API_KEY, RL_API_SECRET, RL_ACCESS_TOKEN, RL_ACCESS_TOKEN_SECRET
+
+# ── Content sources ────────────────────────────────────────────────────────────
+sources:
+
+  - name: r/RocketLeague
+    type: reddit
+    subreddit: RocketLeague
+    min_score: 100
+    poll_interval: 300          # 5 min
+
+  - name: r/RocketLeagueEsports
+    type: reddit
+    subreddit: RocketLeagueEsports
+    min_score: 50
+    poll_interval: 300
+
+  - name: Rocket League Blog
+    type: rss
+    url: https://www.rocketleague.com/news/rss
+    poll_interval: 900          # 15 min
+
+  - name: Steam News
+    type: rss
+    url: https://store.steampowered.com/feeds/news/app/252950
+    poll_interval: 1800         # 30 min
+
+  - name: "@RocketLeague"
+    type: twitter
+    account_id: RocketLeague
+    poll_interval: 300
+
+  - name: "@RLEsports"
+    type: twitter
+    account_id: RLEsports
+    poll_interval: 300
+
+  - name: Liquipedia RL
+    type: scraper
+    url: https://liquipedia.net/rocketleague/Main_Page
+    poll_interval: 1800
+
+  - name: Octane.gg
+    type: api
+    collector: octane
+    base_url: https://zsr.octane.gg
+    poll_interval: 900
+
+# ── Posting schedule ───────────────────────────────────────────────────────────
+posting:
+  min_interval_seconds: 1200   # 20 min minimum between posts
+  max_interval_seconds: 3600   # 60 min maximum
+  max_daily_posts: 15
+  breaking_news_override: true  # high-priority items skip the queue
+
+# ── Hashtags by content type ───────────────────────────────────────────────────
+hashtags:
+  default:   ["#RocketLeague"]
+  esports:   ["#RocketLeague", "#RLCS"]
+  update:    ["#RocketLeague", "#RLUpdate"]
+  item_shop: ["#RocketLeague", "#RLItemShop"]

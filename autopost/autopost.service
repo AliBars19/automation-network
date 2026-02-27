@@ -1,0 +1,15 @@
+[Unit]
+Description=AutoPost X News Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/home/your-user/autopost
+ExecStart=/home/your-user/autopost/venv/bin/python -m src.main
+Restart=always
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
