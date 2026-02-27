@@ -5,17 +5,79 @@ account:
 # ── Content sources ────────────────────────────────────────────────────────────
 sources:
 
+  # ── Reddit ──────────────────────────────────────────────────────────────────
+
   - name: r/geometrydash
     type: reddit
     subreddit: geometrydash
     min_score: 100
     poll_interval: 300          # 5 min
 
+  - name: r/gdlevels
+    type: reddit
+    subreddit: gdlevels
+    min_score: 50
+    poll_interval: 600          # 10 min — new level showcases
+
+  - name: r/geometrydashcringe
+    type: reddit
+    subreddit: geometrydashcringe
+    min_score: 200
+    poll_interval: 1800         # 30 min — community drama / viral moments
+
+  # ── Official X / Twitter accounts ───────────────────────────────────────────
+
+  - name: "@RobTopGames"
+    type: twitter
+    account_id: RobTopGames
+    poll_interval: 300          # 5 min — rare but critical
+
+  - name: "@_GeometryDash"
+    type: twitter
+    account_id: _GeometryDash
+    poll_interval: 300          # official GD account
+
+  - name: "@today_gd"
+    type: twitter
+    account_id: today_gd
+    poll_interval: 300          # very active daily GD news account
+
+  - name: "@demonlistgd"
+    type: twitter
+    account_id: demonlistgd
+    poll_interval: 600          # Pointercrate demon list official updates
+
+  # ── Game update sources ──────────────────────────────────────────────────────
+
+  - name: Steam News (GD)
+    type: rss
+    url: https://store.steampowered.com/feeds/news/app/322170
+    poll_interval: 1800         # 30 min — official patch notes on Steam
+
+  - name: RobTop Games Website
+    type: scraper
+    url: https://www.robtopgames.com/
+    poll_interval: 3600         # 1 hr — developer blog posts
+
+  # ── Demon list / level tracking APIs ────────────────────────────────────────
+
   - name: Pointercrate Demon List
     type: api
     collector: pointercrate
     base_url: https://pointercrate.com/api/v2
-    poll_interval: 600          # 10 min
+    poll_interval: 600          # 10 min — the primary demon list
+
+  - name: AREDL (All Rated Extreme Demons)
+    type: scraper
+    url: https://aredl.net/
+    poll_interval: 900          # 15 min — separate community extreme demon list
+
+  - name: GDDP (GD Demon Progression)
+    type: scraper
+    url: https://gddp.pro/
+    poll_interval: 1800         # 30 min — progression lists and tracker
+
+  # ── Level data API ───────────────────────────────────────────────────────────
 
   - name: GDBrowser
     type: api
@@ -23,15 +85,39 @@ sources:
     base_url: https://gdbrowser.com/api
     poll_interval: 900          # 15 min — daily level, weekly demon, rated levels
 
+  # ── News / coverage sites ────────────────────────────────────────────────────
+
   - name: Dashword.net
     type: scraper
     url: https://dashword.net
     poll_interval: 1800         # 30 min
 
-  - name: "@RobTopGames"
-    type: twitter
-    account_id: RobTopGames
-    poll_interval: 300          # 5 min — rare but critical
+  - name: Geometry Dash Forum (News board)
+    type: scraper
+    url: https://gdforum.freeforums.net/board/94/geometry-dash-news
+    poll_interval: 1800
+
+  # ── Mod / developer ecosystem ────────────────────────────────────────────────
+
+  - name: Geode Mods Catalog
+    type: scraper
+    url: https://geode-sdk.org/mods
+    poll_interval: 1800         # 30 min — new and updated mods
+
+  - name: Geode SDK (GitHub releases)
+    type: api
+    collector: github
+    repo: geode-sdk/geode
+    poll_interval: 3600         # 60 min
+
+  # ── Speedrunning ─────────────────────────────────────────────────────────────
+
+  - name: Speedrun.com — GD
+    type: scraper
+    url: https://www.speedrun.com/gmd
+    poll_interval: 3600         # 1 hr — WR updates
+
+  # ── YouTube channels ─────────────────────────────────────────────────────────
 
   - name: GD YouTube — EVW
     type: youtube
@@ -48,11 +134,30 @@ sources:
     channel_id: UCyPtPvI3ntpCPMIXCRZVg1A
     poll_interval: 1800
 
-  - name: Geode Mods (GitHub)
-    type: api
-    collector: github
-    repo: geode-sdk/geode
-    poll_interval: 3600         # 60 min
+  - name: GD YouTube — Nexus
+    type: youtube
+    channel_id: UCnFLWMCXeN3KHC3a4PlGVOw
+    poll_interval: 1800         # 1M+ subs, level showcases and extreme demons
+
+  - name: GD YouTube — ItzBran
+    type: youtube
+    channel_id: UCWFPPm18a7oXF2IvJR3LNNA
+    poll_interval: 1800         # 4M+ subs, challenges, level experimentation
+
+  - name: GD YouTube — Viprin
+    type: youtube
+    channel_id: UCGbCBpZLLsGbE7KZ2axLozA
+    poll_interval: 1800         # level reviews, competitions, tutorials
+
+  - name: GD YouTube — Juniper
+    type: youtube
+    channel_id: UCT9RFrVRJPvSjZ3BoKPzq7w
+    poll_interval: 3600
+
+  - name: GD YouTube — Moldy
+    type: youtube
+    channel_id: UCBFGCKCpSKOBmkIhsxlIoNA
+    poll_interval: 3600
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
@@ -68,3 +173,4 @@ hashtags:
   game_update:  ["#GeometryDash", "#GDUpdate"]
   level_rated:  ["#GeometryDash", "#GDLevel"]
   mod_update:   ["#GeometryDash", "#Geode"]
+  speedrun:     ["#GeometryDash", "#Speedrun"]

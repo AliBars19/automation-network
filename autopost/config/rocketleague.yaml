@@ -5,6 +5,8 @@ account:
 # ── Content sources ────────────────────────────────────────────────────────────
 sources:
 
+  # ── Reddit ──────────────────────────────────────────────────────────────────
+
   - name: r/RocketLeague
     type: reddit
     subreddit: RocketLeague
@@ -17,6 +19,14 @@ sources:
     min_score: 50
     poll_interval: 300
 
+  - name: r/RLSideSwipe
+    type: reddit
+    subreddit: RLSideSwipe
+    min_score: 50
+    poll_interval: 600          # 10 min — mobile spinoff
+
+  # ── Official RSS / Web ───────────────────────────────────────────────────────
+
   - name: Rocket League Blog
     type: rss
     url: https://www.rocketleague.com/news/rss
@@ -26,6 +36,13 @@ sources:
     type: rss
     url: https://store.steampowered.com/feeds/news/app/252950
     poll_interval: 1800         # 30 min
+
+  - name: Rocket League News Page
+    type: scraper
+    url: https://www.rocketleague.com/en/news
+    poll_interval: 900          # 15 min — catches anything the RSS misses
+
+  # ── Official X / Twitter accounts ───────────────────────────────────────────
 
   - name: "@RocketLeague"
     type: twitter
@@ -37,16 +54,86 @@ sources:
     account_id: RLEsports
     poll_interval: 300
 
-  - name: Liquipedia RL
-    type: scraper
-    url: https://liquipedia.net/rocketleague/Main_Page
-    poll_interval: 1800
+  # ── Esports data APIs ────────────────────────────────────────────────────────
 
   - name: Octane.gg
     type: api
     collector: octane
     base_url: https://zsr.octane.gg
-    poll_interval: 900
+    poll_interval: 900          # 15 min — matches, events, player stats
+
+  - name: Liquipedia RL
+    type: scraper
+    url: https://liquipedia.net/rocketleague/Main_Page
+    poll_interval: 1800         # 30 min — tournaments, rosters, transfers
+
+  - name: start.gg RLCS
+    type: scraper
+    url: https://www.start.gg/league/rocket-league-championship-series/details
+    poll_interval: 1800         # 30 min — live tournament brackets
+
+  - name: Ballchasing.com
+    type: api
+    collector: ballchasing
+    base_url: https://ballchasing.com/api
+    poll_interval: 1800         # 30 min — notable replays, pro match data
+    notes: "Requires free API token from ballchasing.com"
+
+  # ── News / coverage sites ────────────────────────────────────────────────────
+
+  - name: BLAST.tv RL News
+    type: scraper
+    url: https://blast.tv/rl/news
+    poll_interval: 900          # 15 min — tournament news + results
+
+  - name: Esports.gg RL
+    type: scraper
+    url: https://esports.gg/news/rocket-league/
+    poll_interval: 1800
+
+  - name: ONE Esports RL
+    type: scraper
+    url: https://www.oneesports.gg/rocket-league/
+    poll_interval: 1800
+
+  - name: Esports Insider RL
+    type: scraper
+    url: https://esportsinsider.com/?s=rocket+league
+    poll_interval: 3600         # 1 hr — professional journalism, slower pace
+
+  - name: RL Tracker Network News
+    type: scraper
+    url: https://rocketleague.tracker.network/rocket-league/news
+    poll_interval: 1800
+
+  # ── Item shop tracker ────────────────────────────────────────────────────────
+
+  - name: RLshop.gg
+    type: scraper
+    url: https://rlshop.gg/
+    poll_interval: 900          # 15 min — daily item shop rotation
+
+  # ── YouTube ──────────────────────────────────────────────────────────────────
+
+  - name: YouTube — RLEsports Official
+    type: youtube
+    channel_id: UCOgGDKrWXQJk9TIUSxXBDSg
+    poll_interval: 1800         # highlights, interviews, event clips
+
+  - name: YouTube — SunlessKhan
+    type: youtube
+    channel_id: UCiuGGMq1MKrEBMoJx-vAJOA
+    poll_interval: 1800         # patch analysis, news coverage, top channel
+
+  - name: YouTube — Lethamyr
+    type: youtube
+    channel_id: UCFgtCQQTmlqv_FTQhY_ОРИЯ
+    poll_interval: 1800         # daily uploads, competitive analysis
+
+  - name: YouTube — Musty (amustycow)
+    type: youtube
+    channel_id: UCwePk8lEBjAMR4TLPBF4Y_w
+    poll_interval: 3600
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:

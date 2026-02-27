@@ -8,3 +8,5 @@ autopost/logs/
 autopost/__pycache__/
 autopost/**/__pycache__/
 autopost/**/*.pyc
+
+.claude
