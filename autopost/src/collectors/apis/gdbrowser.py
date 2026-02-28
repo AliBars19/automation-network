@@ -28,6 +28,18 @@ _DIFFICULTY: dict[int, str] = {
     9:  "Insane Demon",
     10: "Extreme Demon",
 }
+# Reverse lookup so string values from search API also work
+_DIFFICULTY_STR = {v: v for v in _DIFFICULTY.values()}
+
+
+def _parse_difficulty(val) -> str:
+    """Handle both int (level endpoint) and string (search endpoint) difficulty."""
+    if isinstance(val, str):
+        return _DIFFICULTY_STR.get(val, val)  # already a label, pass through
+    try:
+        return _DIFFICULTY.get(int(val), "Unknown")
+    except (ValueError, TypeError):
+        return "Unknown"
 
 
 class GDBrowserCollector(BaseCollector):
@@ -73,7 +85,7 @@ async def _fetch_daily(
     client: httpx.AsyncClient, source_id: int, niche: str
 ) -> RawContent | None:
     try:
-        resp = await client.get("/daily")
+        resp = await client.get("/level/-1")   # -1 is the daily level sentinel ID
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:
@@ -84,7 +96,7 @@ async def _fetch_daily(
     level_id   = data.get("id", "unknown")
     name       = data.get("name", "Unknown")
     author     = data.get("author", "Unknown")
-    difficulty = _DIFFICULTY.get(int(data.get("difficulty", 0)), "Unknown")
+    difficulty = _parse_difficulty(data.get("difficulty", 0))
     stars      = data.get("stars", 0)
 
     return RawContent(
@@ -112,7 +124,7 @@ async def _fetch_weekly(
     client: httpx.AsyncClient, source_id: int, niche: str
 ) -> RawContent | None:
     try:
-        resp = await client.get("/weekly")
+        resp = await client.get("/level/-2")   # -2 is the weekly demon sentinel ID
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:
@@ -124,7 +136,7 @@ async def _fetch_weekly(
     level_id   = data.get("id", "unknown")
     name       = data.get("name", "Unknown")
     author     = data.get("author", "Unknown")
-    difficulty = _DIFFICULTY.get(int(data.get("difficulty", 0)), "Unknown")
+    difficulty = _parse_difficulty(data.get("difficulty", 0))
     stars      = data.get("stars", 0)
 
     return RawContent(
@@ -155,7 +167,7 @@ async def _fetch_rated(
     try:
         resp = await client.get(
             "/search/*",
-            params={"type": "recent", "diff": "1,2,3,4,5", "count": 10},
+            params={"type": 4, "count": 10},   # type=4 = recently rated
         )
         resp.raise_for_status()
         results = resp.json()
@@ -168,7 +180,7 @@ async def _fetch_rated(
         level_id   = data.get("id", "")
         name       = data.get("name", "Unknown")
         author     = data.get("author", "Unknown")
-        difficulty = _DIFFICULTY.get(int(data.get("difficulty", 0)), "Unknown")
+        difficulty = _parse_difficulty(data.get("difficulty", 0))
         stars      = data.get("stars", 0)
 
         if not level_id:
