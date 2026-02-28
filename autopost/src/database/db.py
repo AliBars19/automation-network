@@ -208,6 +208,38 @@ def is_similar_story(
     return False
 
 
+def cleanup_old_records(conn: sqlite3.Connection, days: int = 30) -> dict:
+    """
+    Delete old tweet_queue rows (posted/skipped/failed) and orphaned
+    raw_content rows older than `days` days.
+    Safe to run while the bot is live — only touches terminal-state rows.
+    Returns {"tweet_queue": n, "raw_content": n}.
+    """
+    cutoff = _days_ago(days)
+
+    cur = conn.execute(
+        """DELETE FROM tweet_queue
+           WHERE status IN ('posted', 'skipped', 'failed')
+             AND created_at < ?""",
+        (cutoff,),
+    )
+    queue_deleted = cur.rowcount
+
+    # Delete raw_content rows that are old AND not referenced by any queue row
+    cur = conn.execute(
+        """DELETE FROM raw_content
+           WHERE collected_at < ?
+             AND id NOT IN (
+                 SELECT raw_content_id FROM tweet_queue
+                 WHERE raw_content_id IS NOT NULL
+             )""",
+        (cutoff,),
+    )
+    content_deleted = cur.rowcount
+
+    return {"tweet_queue": queue_deleted, "raw_content": content_deleted}
+
+
 def url_already_queued(conn: sqlite3.Connection, url: str, content_id: int) -> bool:
     """
     Return True if a raw_content row with the same URL has already been
@@ -234,4 +266,9 @@ def _utcnow() -> str:
 
 def _hours_ago(hours: int) -> str:
     dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _days_ago(days: int) -> str:
+    dt = datetime.now(timezone.utc) - timedelta(days=days)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")

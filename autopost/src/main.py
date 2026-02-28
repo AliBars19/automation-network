@@ -30,7 +30,7 @@ from src.collectors.rss import RSSCollector
 from src.collectors.reddit import RedditCollector
 from src.collectors.twitter_monitor import TwitterMonitorCollector
 from src.collectors.youtube import YouTubeCollector
-from src.database.db import get_db, get_sources, init_db
+from src.database.db import cleanup_old_records, get_db, get_sources, init_db
 from src.poster.client import TwitterClient
 from src.poster.queue import collect_and_queue, post_next, skip_stale
 
@@ -98,6 +98,20 @@ def _run_stale_cleanup(niche: str) -> None:
     skipped = skip_stale(niche, max_age_hours=6)
     if skipped:
         logger.info(f"[Scheduler] stale cleanup [{niche}] → {skipped} items skipped")
+
+
+def _run_db_cleanup() -> None:
+    """Daily job: trim old posted/skipped/failed rows from tweet_queue and raw_content."""
+    with get_db() as conn:
+        stats = cleanup_old_records(conn, days=30)
+    total = stats["tweet_queue"] + stats["raw_content"]
+    if total:
+        logger.info(
+            f"[Scheduler] DB cleanup → removed {stats['tweet_queue']} queue rows,"
+            f" {stats['raw_content']} raw_content rows (>30 days old)"
+        )
+    else:
+        logger.debug("[Scheduler] DB cleanup → nothing to remove")
 
 
 async def _alert(msg: str, level: str = "error") -> None:
@@ -169,6 +183,17 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
         )
 
         logger.info(f"[Scheduler] {niche}: {len(sources)} sources scheduled")
+
+    # ── Daily DB cleanup (03:00 UTC) — runs once regardless of niche count ─────
+    if not scheduler.get_job("db_cleanup"):
+        scheduler.add_job(
+            _run_db_cleanup,
+            "cron",
+            hour   = 3,
+            minute = 0,
+            id     = "db_cleanup",
+            name   = "Daily DB cleanup (30-day rolling window)",
+        )
 
     return scheduler
 
