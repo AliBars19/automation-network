@@ -127,14 +127,119 @@ sudo journalctl -u autopost -f
 
 ## Deployment (DigitalOcean)
 
+### Requirements
+- Ubuntu 22.04 LTS droplet (1 GB RAM / 1 vCPU is sufficient)
+- Python 3.12 (`sudo apt install python3.12 python3.12-venv`)
+- sqlite3 CLI for backups (`sudo apt install sqlite3`)
+- All API credentials from the table above
+
+### First-time server setup
+
 ```bash
-# On the droplet
+# 1. Create a dedicated system user (no login shell for security)
 sudo useradd -m -s /bin/bash autopost
-sudo -u autopost git clone https://github.com/AliBars19/automation-network.git
-# ... follow Setup steps above as the autopost user
-sudo cp autopost/autopost.service /etc/systemd/system/
-sudo systemctl enable --now autopost
+
+# 2. Switch to that user for all remaining steps
+sudo -iu autopost
+
+# 3. Clone the repo
+git clone https://github.com/AliBars19/automation-network.git
+cd automation-network/autopost
+
+# 4. Create virtualenv and install deps
+python3.12 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 5. Create and fill in credentials
+cp .env.example .env
+nano .env    # paste all API keys here
+
+# 6. Initialise DB and seed sources
+python scripts/setup_db.py
+
+# 7. Smoke test (no credentials needed)
+DRY_RUN=true python src/main.py    # should start scheduler, Ctrl+C to stop
 ```
+
+### Enable systemd service
+
+```bash
+# Back as root / sudo user:
+sudo cp /home/autopost/automation-network/autopost/autopost.service \
+        /etc/systemd/system/autopost.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now autopost
+
+# Verify it started
+sudo systemctl status autopost
+```
+
+### Monitoring
+
+```bash
+# Live log stream
+sudo journalctl -u autopost -f
+
+# Last 100 lines
+sudo journalctl -u autopost -n 100
+
+# Rotating log files (14-day retention)
+tail -f /home/autopost/automation-network/autopost/logs/autopost_$(date +%Y-%m-%d).log
+
+# Check queue depth
+sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
+  "SELECT niche, status, COUNT(*) FROM tweet_queue GROUP BY niche, status;"
+
+# Check today's posts
+sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
+  "SELECT niche, COUNT(*) FROM post_log WHERE posted_at >= date('now') GROUP BY niche;"
+
+# Check source health (recent errors)
+sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
+  "SELECT s.name, COUNT(e.id) errors FROM source_errors e
+   JOIN sources s ON s.id = e.source_id
+   WHERE e.occurred_at >= datetime('now','-1 hour')
+   GROUP BY s.name ORDER BY errors DESC;"
+```
+
+### Backups
+
+```bash
+# Run a backup manually
+bash /home/autopost/automation-network/autopost/scripts/backup_db.sh
+
+# Add to crontab for daily 04:00 UTC backup (as the autopost user)
+crontab -e
+# Add this line:
+# 0 4 * * * /home/autopost/automation-network/autopost/scripts/backup_db.sh >> /home/autopost/automation-network/autopost/logs/backup.log 2>&1
+```
+
+### Updating (after pushing new code)
+
+```bash
+# On the droplet, as the autopost user:
+bash /home/autopost/automation-network/autopost/scripts/deploy.sh
+```
+
+`deploy.sh` does: git pull → pip install → setup_db.py → systemctl restart → status check.
+
+### Re-enabling a disabled source
+
+Sources are auto-disabled after 10 failures in 1 hour. To re-enable:
+
+```bash
+sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
+  "UPDATE sources SET enabled = 1 WHERE name = 'Source Name Here';"
+sudo systemctl restart autopost
+```
+
+### Switching from DRY_RUN to live posting
+
+1. Confirm all API keys are in `.env`
+2. Edit `.env`: set `DRY_RUN=false`
+3. `sudo systemctl restart autopost`
+4. Watch logs: `sudo journalctl -u autopost -f`
 
 ---
 
