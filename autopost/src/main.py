@@ -28,6 +28,7 @@ from src.collectors.apis.octane import OctaneCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
 from src.collectors.rss import RSSCollector
 from src.collectors.reddit import RedditCollector
+from src.collectors.scraper import ScraperCollector
 from src.collectors.twitter_monitor import TwitterMonitorCollector
 from src.collectors.youtube import YouTubeCollector
 from src.database.db import cleanup_old_records, get_db, get_sources, init_db
@@ -59,6 +60,8 @@ def _make_collector(source_id: int, type_: str, config: dict, niche: str):
         return RSSCollector(source_id, config, niche)
     if type_ == "reddit":
         return RedditCollector(source_id, config, niche)
+    if type_ == "scraper":
+        return ScraperCollector(source_id, config, niche)
     if type_ == "twitter":
         return TwitterMonitorCollector(source_id, config, niche)
     if type_ == "youtube":
@@ -67,7 +70,7 @@ def _make_collector(source_id: int, type_: str, config: dict, niche: str):
         cls = _API_MAP.get(config.get("collector", ""))
         if cls:
             return cls(source_id, config, niche)
-    return None  # scraper or unknown — skipped (site-specific logic not yet implemented)
+    return None  # unknown type — skipped
 
 
 # ── Job runners ────────────────────────────────────────────────────────────────
