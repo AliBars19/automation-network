@@ -25,6 +25,18 @@ sources:
     min_score: 50
     poll_interval: 600          # 10 min — mobile spinoff
 
+  - name: r/RocketLeagueSchool
+    type: reddit
+    subreddit: RocketLeagueSchool
+    min_score: 25
+    poll_interval: 600          # strategy, coaching, improvement posts
+
+  - name: r/RLFanArt
+    type: reddit
+    subreddit: RLFanArt
+    min_score: 150
+    poll_interval: 1800         # community fan art and creative content
+
   # ── Official RSS / Web ───────────────────────────────────────────────────────
 
   - name: Rocket League Blog
@@ -36,6 +48,11 @@ sources:
     type: rss
     url: https://store.steampowered.com/feeds/news/app/252950
     poll_interval: 1800         # 30 min
+
+  - name: Dot Esports RL
+    type: rss
+    url: https://dotesports.com/rocket-league/rss
+    poll_interval: 1800         # 30 min — esports & game news coverage
 
   - name: Rocket League News Page
     type: scraper
@@ -53,6 +70,16 @@ sources:
     type: twitter
     account_id: RLEsports
     poll_interval: 300
+
+  - name: "@PsyonixStudios"
+    type: twitter
+    account_id: PsyonixStudios
+    poll_interval: 300          # official developer studio account
+
+  - name: "@RLCS"
+    type: twitter
+    account_id: RLCS
+    poll_interval: 300          # official RLCS competitive series
 
   # ── Esports data APIs ────────────────────────────────────────────────────────
 
@@ -106,6 +133,21 @@ sources:
     url: https://rocketleague.tracker.network/rocket-league/news
     poll_interval: 1800
 
+  - name: Dexerto RL
+    type: scraper
+    url: https://www.dexerto.com/rocket-league/
+    poll_interval: 3600         # 1 hr — major gaming news outlet
+
+  - name: The Loadout RL
+    type: scraper
+    url: https://www.theloadout.com/rocket-league
+    poll_interval: 3600         # 1 hr — RL guides and patch coverage
+
+  - name: GGRecon RL
+    type: scraper
+    url: https://www.ggrecon.com/game/rocket-league
+    poll_interval: 3600         # 1 hr — esports and game coverage
+
   # ── Item shop tracker ────────────────────────────────────────────────────────
 
   - name: RLshop.gg
@@ -134,6 +176,11 @@ sources:
     type: youtube
     channel_id: UCwePk8lEBjAMR4TLPBF4Y_w
     poll_interval: 3600
+
+  - name: YouTube — Wayton Pilkin
+    type: youtube
+    channel_id: UCeg2dFpnarFPI14hbN_5rKg
+    poll_interval: 1800         # popular RL content creator and competitive player
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:

@@ -17,9 +17,11 @@ from src.database.db import (
     get_db,
     get_queued_tweets,
     insert_raw_content,
+    is_similar_story,
     mark_failed,
     mark_posted,
     mark_skipped,
+    url_already_queued,
 )
 from src.formatter.formatter import format_tweet
 from src.formatter.media import prepare_media
@@ -77,7 +79,15 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
         for item in items:
             content_id, is_new = insert_raw_content(conn, item)
             if not is_new:
-                continue  # already seen — dedup
+                continue  # already seen from this source — dedup
+
+            # Cross-source URL dedup: same article already queued from a different source?
+            if item.url and url_already_queued(conn, item.url, content_id):
+                logger.debug(
+                    f"[{niche}] URL already queued from another source, skipping:"
+                    f" {item.url[:70]}"
+                )
+                continue
 
             tweet_text = format_tweet(item)
 
@@ -89,6 +99,14 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                     continue
                 # Queue as "RETWEET:{id}" — post_next will call client.retweet()
                 tweet_text = f"RETWEET:{retweet_id}"
+            else:
+                # Similarity check: too close to a recently queued tweet?
+                if is_similar_story(conn, tweet_text, niche):
+                    logger.debug(
+                        f"[{niche}] similar story already queued, skipping:"
+                        f" {tweet_text[:60]}"
+                    )
+                    continue
 
             priority   = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
             media_path = prepare_media(item.image_url) if item.image_url else None

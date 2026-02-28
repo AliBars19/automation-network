@@ -6,7 +6,7 @@ the transaction boundary via the get_db() context manager.
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -177,7 +177,61 @@ def mark_skipped(conn: sqlite3.Connection, queue_id: int) -> None:
     )
 
 
+# ── Similarity & dedup helpers ─────────────────────────────────────────────────
+
+def is_similar_story(
+    conn: sqlite3.Connection,
+    tweet_text: str,
+    niche: str,
+    threshold: float = 0.65,
+    hours: int = 24,
+) -> bool:
+    """
+    Return True if tweet_text is very similar to any tweet queued in the
+    past `hours` hours for this niche.  Protects against cross-source story
+    duplication where different sources cover the same news with slightly
+    different wording.  Uses difflib.SequenceMatcher (no extra dependencies).
+    """
+    from difflib import SequenceMatcher
+
+    cutoff = _hours_ago(hours)
+    rows = conn.execute(
+        """SELECT tweet_text FROM tweet_queue
+           WHERE niche = ? AND created_at >= ? AND status = 'queued'""",
+        (niche, cutoff),
+    ).fetchall()
+    needle = tweet_text.lower()
+    for row in rows:
+        ratio = SequenceMatcher(None, needle, row["tweet_text"].lower()).ratio()
+        if ratio >= threshold:
+            return True
+    return False
+
+
+def url_already_queued(conn: sqlite3.Connection, url: str, content_id: int) -> bool:
+    """
+    Return True if a raw_content row with the same URL has already been
+    enqueued from a different source (id != content_id).
+    Prevents the same article from two sources filling the queue twice.
+    """
+    if not url:
+        return False
+    row = conn.execute(
+        """SELECT 1 FROM raw_content rc
+           JOIN tweet_queue tq ON tq.raw_content_id = rc.id
+           WHERE rc.url = ? AND rc.id != ?
+           LIMIT 1""",
+        (url, content_id),
+    ).fetchone()
+    return row is not None
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _hours_ago(hours: int) -> str:
+    dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -25,6 +25,18 @@ sources:
     min_score: 200
     poll_interval: 1800         # 30 min — community drama / viral moments
 
+  - name: r/challengelist
+    type: reddit
+    subreddit: challengelist
+    min_score: 25
+    poll_interval: 900          # 15 min — GD challenge list community updates
+
+  - name: r/gdmods
+    type: reddit
+    subreddit: gdmods
+    min_score: 25
+    poll_interval: 1800         # 30 min — Geode mods and GD modding community
+
   # ── Official X / Twitter accounts ───────────────────────────────────────────
 
   - name: "@RobTopGames"
@@ -46,6 +58,16 @@ sources:
     type: twitter
     account_id: demonlistgd
     poll_interval: 600          # Pointercrate demon list official updates
+
+  - name: "@geode_sdk"
+    type: twitter
+    account_id: geode_sdk
+    poll_interval: 600          # official Geode mod framework account — releases and updates
+
+  - name: "@GDW_ORG"
+    type: twitter
+    account_id: GDW_ORG
+    poll_interval: 900          # Geometry Dash World — level showcases and community news
 
   # ── Game update sources ──────────────────────────────────────────────────────
 
@@ -91,6 +113,11 @@ sources:
     type: scraper
     url: https://dashword.net
     poll_interval: 1800         # 30 min
+
+  - name: Challenge List
+    type: scraper
+    url: https://challengelist.gd/
+    poll_interval: 900          # 15 min — official GD challenge list (harder than demon list)
 
   - name: Geometry Dash Forum (News board)
     type: scraper
@@ -158,6 +185,16 @@ sources:
     type: youtube
     channel_id: UCBFGCKCpSKOBmkIhsxlIoNA
     poll_interval: 3600
+
+  - name: GD YouTube — Knobbelboy
+    type: youtube
+    channel_id: UCsjWeDDjmRcWNpBjsr3zwbg
+    poll_interval: 1800         # top-tier extreme demon player, verification videos
+
+  - name: GD YouTube — Doggie
+    type: youtube
+    channel_id: UC3ZhM0fDxU9bqqlwWRMHwuw
+    poll_interval: 3600         # GD speedrunner, WR content
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
