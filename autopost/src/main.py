@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config.settings import LOG_LEVEL, LOGS_DIR, DRY_RUN
 from src.collectors.apis.gdbrowser import GDBrowserCollector
+from src.collectors.apis.github import GitHubCollector
 from src.collectors.apis.octane import OctaneCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
 from src.collectors.rss import RSSCollector
@@ -52,6 +53,7 @@ _API_MAP = {
     "pointercrate": PointercrateCollector,
     "gdbrowser":    GDBrowserCollector,
     "octane":       OctaneCollector,
+    "github":       GitHubCollector,
 }
 
 
