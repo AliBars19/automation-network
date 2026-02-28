@@ -32,7 +32,15 @@ from src.collectors.reddit import RedditCollector
 from src.collectors.scraper import ScraperCollector
 from src.collectors.twitter_monitor import TwitterMonitorCollector
 from src.collectors.youtube import YouTubeCollector
-from src.database.db import cleanup_old_records, get_db, get_sources, init_db
+from src.database.db import (
+    cleanup_old_records,
+    disable_source,
+    get_db,
+    get_sources,
+    init_db,
+    recent_source_error_count,
+    record_source_error,
+)
 from src.poster.client import TwitterClient
 from src.poster.queue import collect_and_queue, post_next, skip_stale
 
@@ -77,16 +85,44 @@ def _make_collector(source_id: int, type_: str, config: dict, niche: str):
 
 # ── Job runners ────────────────────────────────────────────────────────────────
 
-async def _run_collector(collector, niche: str) -> None:
+_ALERT_THRESHOLD  = 3    # Discord alert after this many errors in the window
+_DISABLE_THRESHOLD = 10  # Auto-disable source after this many errors in the window
+_ERROR_WINDOW_H   = 1    # Rolling window for counting errors (hours)
+
+
+async def _run_collector(
+    collector, niche: str, source_id: int, source_name: str
+) -> None:
     try:
         n = await collect_and_queue(collector, niche)
         if n:
-            logger.info(
-                f"[Scheduler] {type(collector).__name__} → {n} new items queued"
-            )
+            logger.info(f"[Scheduler] {source_name} → {n} new items queued")
     except Exception as exc:
-        logger.error(f"[Scheduler] {type(collector).__name__} failed: {exc}")
-        await _alert(f"Collector {type(collector).__name__} ({niche}) failed: {exc}")
+        logger.error(f"[Scheduler] {source_name} [{niche}] failed: {exc}")
+
+        with get_db() as conn:
+            record_source_error(conn, source_id, str(exc))
+            error_count = recent_source_error_count(conn, source_id, hours=_ERROR_WINDOW_H)
+
+            if error_count >= _DISABLE_THRESHOLD:
+                disable_source(conn, source_id)
+                logger.warning(
+                    f"[Health] {source_name} auto-disabled after "
+                    f"{error_count} errors in {_ERROR_WINDOW_H}h"
+                )
+                await _alert(
+                    f"**Source auto-disabled**: `{source_name}` [{niche}]\n"
+                    f"Failed {error_count}× in {_ERROR_WINDOW_H}h — re-enable via DB.\n"
+                    f"Last error: `{str(exc)[:300]}`",
+                    level="error",
+                )
+            elif error_count == _ALERT_THRESHOLD:
+                await _alert(
+                    f"**Source degraded**: `{source_name}` [{niche}]\n"
+                    f"Failed {error_count}× in the last {_ERROR_WINDOW_H}h.\n"
+                    f"Last error: `{str(exc)[:300]}`",
+                    level="warning",
+                )
 
 
 def _run_poster(niche: str, client: TwitterClient) -> None:
@@ -156,7 +192,7 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
                 _run_collector,
                 "interval",
                 seconds      = poll_interval,
-                args         = [collector, niche],
+                args         = [collector, niche, source_id, name],
                 id           = f"collect_{niche}_{source_id}",
                 name         = f"Collect {name} ({niche})",
                 max_instances= 1,

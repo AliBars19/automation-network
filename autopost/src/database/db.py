@@ -177,6 +177,34 @@ def mark_skipped(conn: sqlite3.Connection, queue_id: int) -> None:
     )
 
 
+# ── Source health tracking ─────────────────────────────────────────────────────
+
+def record_source_error(conn: sqlite3.Connection, source_id: int, error_msg: str) -> None:
+    """Log a collector failure for a source."""
+    conn.execute(
+        "INSERT INTO source_errors (source_id, error_msg) VALUES (?, ?)",
+        (source_id, error_msg[:500]),
+    )
+
+
+def recent_source_error_count(
+    conn: sqlite3.Connection, source_id: int, hours: int = 1
+) -> int:
+    """Count how many errors a source has logged in the past `hours` hours."""
+    cutoff = _hours_ago(hours)
+    row = conn.execute(
+        """SELECT COUNT(*) AS cnt FROM source_errors
+           WHERE source_id = ? AND occurred_at >= ?""",
+        (source_id, cutoff),
+    ).fetchone()
+    return row["cnt"] if row else 0
+
+
+def disable_source(conn: sqlite3.Connection, source_id: int) -> None:
+    """Set enabled=0 on a source so the scheduler stops polling it."""
+    conn.execute("UPDATE sources SET enabled = 0 WHERE id = ?", (source_id,))
+
+
 # ── Similarity & dedup helpers ─────────────────────────────────────────────────
 
 def is_similar_story(
