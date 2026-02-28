@@ -26,7 +26,7 @@ from src.database.db import (
 from src.formatter.formatter import format_tweet
 from src.formatter.media import prepare_media
 from src.poster.client import TwitterClient
-from src.poster.rate_limiter import can_post, within_monthly_limit
+from src.poster.rate_limiter import can_post, within_monthly_limit, within_posting_window
 
 # Priority map: lower number = posted sooner
 _PRIORITY: dict[str, int] = {
@@ -129,10 +129,12 @@ def post_next(niche: str, client: TwitterClient) -> bool:
     """
     Post the next queued tweet for `niche`.
     Returns True if a tweet was posted (or dry-run logged), False otherwise.
-    """
-    if not can_post(niche):
-        return False
 
+    Priority-1 items (breaking news) bypass:
+      - The posting window (08:00–22:00 UTC) — posts at any hour
+      - The 20-min minimum gap — posts immediately
+    The monthly cap is always enforced regardless of priority.
+    """
     if not within_monthly_limit(niche):
         return False
 
@@ -142,9 +144,19 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             logger.debug(f"[{niche}] queue is empty")
             return False
 
-        row      = rows[0]
-        queue_id = row["id"]
-        text     = row["tweet_text"]
+        row         = rows[0]
+        queue_id    = row["id"]
+        text        = row["tweet_text"]
+        is_breaking = (row["priority"] == 1)
+
+        # Non-breaking: enforce posting window + minimum gap
+        if not is_breaking:
+            if not within_posting_window():
+                return False
+            if not can_post(niche):
+                return False
+        else:
+            logger.info(f"[{niche}] breaking news (p1) — bypassing window + rate limit")
 
         # Dispatch: retweet signal vs normal tweet
         if text.startswith("RETWEET:"):

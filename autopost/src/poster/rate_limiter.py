@@ -1,6 +1,9 @@
 """
-Rate limiter — enforces minimum post intervals and monthly tweet cap.
-State is read from the post_log table so it survives restarts.
+Rate limiter — enforces minimum post intervals, monthly tweet cap,
+and posting window (08:00–22:00 UTC).
+
+Breaking news (priority == 1) bypasses the window and the minimum gap
+so urgent content posts immediately regardless of time of day.
 """
 import random
 from datetime import datetime, timezone
@@ -9,11 +12,13 @@ from loguru import logger
 
 from src.database.db import get_db
 
-# ── Constants (override via YAML posting config in Step 12) ───────────────────
-MIN_INTERVAL_S  = 1200   # 20 min minimum between posts
-MAX_INTERVAL_S  = 3600   # 60 min maximum
-JITTER_MAX_S    = 120    # 0–120 s extra randomness on top of the interval
-MONTHLY_LIMIT   = 1500   # X Free tier: 1,500 tweets/month per app
+# ── Constants ─────────────────────────────────────────────────────────────────
+MIN_INTERVAL_S       = 1200   # 20 min minimum between normal posts
+MAX_INTERVAL_S       = 3600   # 60 min maximum
+JITTER_MAX_S         = 120    # 0–120 s extra randomness
+MONTHLY_LIMIT        = 1500   # X Free tier: 1,500 tweets/month per app
+POSTING_WINDOW_START = 8      # UTC hour (inclusive) — 08:00
+POSTING_WINDOW_END   = 22     # UTC hour (exclusive) — 22:00
 
 
 def can_post(niche: str) -> bool:
@@ -50,6 +55,21 @@ def within_monthly_limit(niche: str) -> bool:
         logger.warning(f"[{niche}] monthly tweet cap reached ({count}/{MONTHLY_LIMIT})")
         return False
     return True
+
+
+def within_posting_window(is_breaking: bool = False) -> bool:
+    """
+    Return True if the current UTC hour is within 08:00–22:00.
+    Breaking news (is_breaking=True) always returns True — no blackout period
+    for priority-1 items (new top-1 demon, RobTop tweet, etc.).
+    """
+    if is_breaking:
+        return True
+    hour = datetime.now(timezone.utc).hour
+    in_window = POSTING_WINDOW_START <= hour < POSTING_WINDOW_END
+    if not in_window:
+        logger.debug(f"Outside posting window (UTC {hour:02d}:xx — window 08–22)")
+    return in_window
 
 
 def jitter_delay() -> float:
