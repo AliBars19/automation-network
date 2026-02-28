@@ -16,8 +16,7 @@ from loguru import logger
 from src.collectors.base import BaseCollector, RawContent
 
 _BASE_URL  = "https://pointercrate.com/api/v2"
-_TOP_N     = 150   # how many demons to fetch per poll
-_BATCH     = 100   # max Pointercrate allows per request
+_TOP_N     = 75    # how many demons to track (main list only)
 
 
 class PointercrateCollector(BaseCollector):
@@ -83,31 +82,25 @@ class PointercrateCollector(BaseCollector):
 # ── API helpers ───────────────────────────────────────────────────────────────
 
 async def _fetch_demons(total: int) -> list[dict]:
-    """Fetch up to `total` demons in batches, returning a flat list."""
-    demons: list[dict] = []
-    fetched = 0
-
+    """
+    Fetch the current top demons sorted by position using the /listed endpoint.
+    The /demons/ endpoint paginates by internal ID (not position), so it returns
+    demons in ID order rather than position order. /listed returns them correctly
+    sorted by position up to 75 entries.
+    """
     async with httpx.AsyncClient(timeout=15) as client:
-        while fetched < total:
-            limit = min(_BATCH, total - fetched)
-            try:
-                resp = await client.get(
-                    f"{_BASE_URL}/demons/",
-                    params={"limit": limit, "after": fetched},
-                    headers={"Accept": "application/json"},
-                )
-                resp.raise_for_status()
-            except httpx.HTTPError as exc:
-                logger.error(f"[Pointercrate] HTTP error: {exc}")
-                break
-
-            batch = resp.json()
-            if not batch:
-                break
-            demons.extend(batch)
-            fetched += len(batch)
-
-    return demons
+        try:
+            resp = await client.get(
+                f"{_BASE_URL}/demons/listed",
+                headers={"Accept": "application/json"},
+            )
+            resp.raise_for_status()
+            demons = resp.json()
+            # Sort by position to be safe, then take top _TOP_N
+            return sorted(demons, key=lambda d: d.get("position", 9999))[:total]
+        except httpx.HTTPError as exc:
+            logger.error(f"[Pointercrate] HTTP error: {exc}")
+            return []
 
 
 def _classify(position: int) -> str:
