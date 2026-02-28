@@ -29,6 +29,8 @@ from src.poster.rate_limiter import can_post, within_monthly_limit
 _PRIORITY: dict[str, int] = {
     "top1_verified":       1,
     "breaking_news":       1,
+    "robtop_tweet":        1,   # RobTop tweets are always notable
+    "official_tweet":      2,   # official RL/GD account tweets
     "patch_notes":         2,
     "game_update":         2,
     "season_start":        2,
@@ -77,11 +79,15 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                 continue  # already seen — dedup
 
             tweet_text = format_tweet(item)
+
             if tweet_text is None:
-                # Retweet signal — no formatted text, skip queueing
-                # (twitter_monitor collector handles RT/QT directly)
-                logger.debug(f"[{niche}] skipping retweet-signal item {item.external_id}")
-                continue
+                # Retweet signal — check if the collector supplied a retweet_id
+                retweet_id = item.metadata.get("retweet_id")
+                if not retweet_id:
+                    logger.debug(f"[{niche}] skipping retweet-signal with no id: {item.external_id}")
+                    continue
+                # Queue as "RETWEET:{id}" — post_next will call client.retweet()
+                tweet_text = f"RETWEET:{retweet_id}"
 
             priority = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
             add_to_queue(conn, niche, tweet_text, content_id, priority=priority)
@@ -115,12 +121,20 @@ def post_next(niche: str, client: TwitterClient) -> bool:
 
         row      = rows[0]
         queue_id = row["id"]
+        text     = row["tweet_text"]
 
-        tweet_id = client.post_tweet(
-            text       = row["tweet_text"],
-            media_path = row["media_path"],
-        )
+        # Dispatch: retweet signal vs normal tweet
+        if text.startswith("RETWEET:"):
+            original_id = text.split(":", 1)[1].strip()
+            success = client.retweet(original_id)
+            if success:
+                mark_posted(conn, queue_id, original_id)
+                return True
+            else:
+                mark_failed(conn, queue_id, f"retweet {original_id} failed")
+                return False
 
+        tweet_id = client.post_tweet(text=text, media_path=row["media_path"])
         if tweet_id:
             mark_posted(conn, queue_id, tweet_id)
             return True
