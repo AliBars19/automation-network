@@ -100,13 +100,12 @@ def _run_stale_cleanup(niche: str) -> None:
         logger.info(f"[Scheduler] stale cleanup [{niche}] → {skipped} items skipped")
 
 
-async def _alert(msg: str) -> None:
-    """Lazy import so alerts.py can be filled in at Step 15 without breaking earlier steps."""
+async def _alert(msg: str, level: str = "error") -> None:
     try:
         from src.monitoring.alerts import send_alert
-        await send_alert(msg)
+        await send_alert(msg, level=level)
     except Exception:
-        pass  # alerts not yet configured — fail silently
+        pass
 
 
 # ── Scheduler setup ────────────────────────────────────────────────────────────
@@ -181,6 +180,7 @@ async def main() -> None:
 
     init_db()
     scheduler = build_scheduler()
+    await _alert(f"AutoPost started {'[DRY RUN]' if DRY_RUN else '[LIVE]'}", level="success")
     scheduler.start()
 
     logger.info(f"Scheduler running — {len(scheduler.get_jobs())} jobs active")
