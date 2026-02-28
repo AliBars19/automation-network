@@ -1,15 +1,32 @@
 [Unit]
-Description=AutoPost X News Bot
-After=network.target
+Description=AutoPost — RLWire & GDWire X news bots
+Documentation=https://github.com/AliBars19/automation-network
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=your-user
-WorkingDirectory=/home/your-user/autopost
-ExecStart=/home/your-user/autopost/venv/bin/python -m src.main
-Restart=always
-RestartSec=30
+User=autopost
+Group=autopost
+
+# Adjust this path to wherever you clone the repo on the droplet
+WorkingDirectory=/home/autopost/automation-network/autopost
+ExecStart=/home/autopost/automation-network/autopost/venv/bin/python src/main.py
+
+# Load credentials from .env sitting next to the code
+EnvironmentFile=/home/autopost/automation-network/autopost/.env
 Environment=PYTHONUNBUFFERED=1
+
+# Restart immediately if the process crashes; back off after repeated failures
+Restart=always
+RestartSec=15
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Log to journald (view with: journalctl -u autopost -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=autopost
 
 [Install]
 WantedBy=multi-user.target
