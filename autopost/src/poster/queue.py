@@ -22,6 +22,7 @@ from src.database.db import (
     mark_skipped,
 )
 from src.formatter.formatter import format_tweet
+from src.formatter.media import prepare_media
 from src.poster.client import TwitterClient
 from src.poster.rate_limiter import can_post, within_monthly_limit
 
@@ -89,11 +90,15 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                 # Queue as "RETWEET:{id}" — post_next will call client.retweet()
                 tweet_text = f"RETWEET:{retweet_id}"
 
-            priority = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
-            add_to_queue(conn, niche, tweet_text, content_id, priority=priority)
+            priority   = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
+            media_path = prepare_media(item.image_url) if item.image_url else None
+            add_to_queue(
+                conn, niche, tweet_text, content_id,
+                media_path=media_path, priority=priority,
+            )
             logger.info(
-                f"[{niche}] queued [{item.content_type}] p{priority}: "
-                f"{tweet_text[:60]}…"
+                f"[{niche}] queued [{item.content_type}] p{priority}"
+                f"{' +img' if media_path else ''}: {tweet_text[:60]}…"
             )
             queued += 1
 
