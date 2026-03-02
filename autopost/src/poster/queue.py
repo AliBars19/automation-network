@@ -26,7 +26,14 @@ from src.database.db import (
 from src.formatter.formatter import format_tweet
 from src.formatter.media import prepare_media
 from src.poster.client import TwitterClient
-from src.poster.rate_limiter import can_post, within_monthly_limit, within_posting_window
+from src.poster.rate_limiter import (
+    can_post,
+    consecutive_failure_count,
+    failure_backoff_ok,
+    within_monthly_limit,
+    within_posting_window,
+    _BACKOFF_ALERT_N,
+)
 
 # Priority map: lower number = posted sooner
 _PRIORITY: dict[str, int] = {
@@ -133,9 +140,13 @@ def post_next(niche: str, client: TwitterClient) -> bool:
     Priority-1 items (breaking news) bypass:
       - The posting window (08:00–22:00 UTC) — posts at any hour
       - The 20-min minimum gap — posts immediately
-    The monthly cap is always enforced regardless of priority.
+    The monthly cap and failure backoff are always enforced regardless of priority.
     """
     if not within_monthly_limit(niche):
+        return False
+
+    # Always respect failure backoff — if the API is down, hammering won't help
+    if not failure_backoff_ok(niche):
         return False
 
     with get_db() as conn:
@@ -167,6 +178,7 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 return True
             else:
                 mark_failed(conn, queue_id, f"retweet {original_id} failed")
+                _check_failure_alert(niche)
                 return False
 
         tweet_id = client.post_tweet(text=text, media_path=row["media_path"])
@@ -175,7 +187,25 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             return True
         else:
             mark_failed(conn, queue_id, "TwitterClient.post_tweet returned None")
+            _check_failure_alert(niche)
             return False
+
+
+def _check_failure_alert(niche: str) -> None:
+    """Send a Discord alert when consecutive failures hit the threshold."""
+    count = consecutive_failure_count(niche)
+    if count == _BACKOFF_ALERT_N:
+        try:
+            import asyncio
+            from src.monitoring.alerts import send_alert
+            loop = asyncio.get_running_loop()
+            loop.create_task(send_alert(
+                f"**Poster [{niche}]**: {count} consecutive failures — "
+                f"backing off. Check X API access (402 = tier issue).",
+                level="error",
+            ))
+        except Exception:
+            pass
 
 
 def skip_stale(niche: str, max_age_hours: int = 6) -> int:

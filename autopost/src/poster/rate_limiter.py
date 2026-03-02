@@ -1,9 +1,11 @@
 """
 Rate limiter — enforces minimum post intervals, monthly tweet cap,
-and posting window (08:00–22:00 UTC).
+posting window (08:00–22:00 UTC), and failure backoff.
 
 Breaking news (priority == 1) bypasses the window and the minimum gap
 so urgent content posts immediately regardless of time of day.
+The failure backoff is always enforced — even for breaking news — because
+if the API is down, hammering it won't help.
 """
 import random
 from datetime import datetime, timezone
@@ -20,6 +22,11 @@ MONTHLY_LIMIT        = 1500   # X Free tier: 1,500 tweets/month per app
 POSTING_WINDOW_START = 8      # UTC hour (inclusive) — 08:00
 POSTING_WINDOW_END   = 22     # UTC hour (exclusive) — 22:00
 
+# Failure backoff: wait 2^N minutes after N consecutive failures, capped at 60 min
+_BACKOFF_BASE_S  = 120   # 2 minutes after first failure
+_BACKOFF_CAP_S   = 3600  # max 60 minutes between retries
+_BACKOFF_ALERT_N = 3     # send Discord alert after this many consecutive failures
+
 
 def can_post(niche: str) -> bool:
     """True if enough time has passed since the last successful post."""
@@ -33,6 +40,70 @@ def can_post(niche: str) -> bool:
         )
         return False
     return True
+
+
+def failure_backoff_ok(niche: str) -> bool:
+    """
+    Return True if enough time has passed since the last failed post attempt.
+    Uses exponential backoff based on consecutive failure count so the poster
+    doesn't hammer a broken API every 2 minutes.
+    """
+    with get_db() as conn:
+        # Count consecutive recent failures (no successes in between)
+        rows = conn.execute(
+            """SELECT tweet_id, posted_at FROM post_log
+               WHERE niche = ?
+               ORDER BY posted_at DESC LIMIT 20""",
+            (niche,),
+        ).fetchall()
+
+    if not rows:
+        return True  # no history at all
+
+    # Count consecutive failures from the top
+    consecutive = 0
+    last_failure_at = None
+    for row in rows:
+        if row["tweet_id"] is not None:
+            break  # hit a success — stop counting
+        consecutive += 1
+        if last_failure_at is None:
+            last_failure_at = row["posted_at"]
+
+    if consecutive == 0:
+        return True  # last attempt was a success
+
+    # Exponential backoff: 2min, 4min, 8min, 16min, 32min, 60min cap
+    delay = min(_BACKOFF_BASE_S * (2 ** (consecutive - 1)), _BACKOFF_CAP_S)
+    last_dt = datetime.fromisoformat(last_failure_at.replace("Z", "+00:00"))
+    elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
+
+    if elapsed < delay:
+        remaining = int(delay - elapsed)
+        logger.debug(
+            f"[{niche}] failure backoff — {consecutive} consecutive failures,"
+            f" waiting {remaining}s (backoff {int(delay)}s)"
+        )
+        return False
+
+    return True
+
+
+def consecutive_failure_count(niche: str) -> int:
+    """Return the number of consecutive posting failures (0 if last was a success)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT tweet_id FROM post_log
+               WHERE niche = ?
+               ORDER BY posted_at DESC LIMIT 20""",
+            (niche,),
+        ).fetchall()
+    count = 0
+    for row in rows:
+        if row["tweet_id"] is not None:
+            break
+        count += 1
+    return count
 
 
 def monthly_post_count(niche: str) -> int:
