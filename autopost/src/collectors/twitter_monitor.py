@@ -20,6 +20,10 @@ _CONTENT_TYPE: dict[str, str] = {
     "geometrydash":  "robtop_tweet",
 }
 
+# Shared flag — once we detect Free tier (no read access), skip all monitors.
+# One flag per niche since each niche has its own API credentials.
+_disabled_niches: set[str] = set()
+
 
 class TwitterMonitorCollector(BaseCollector):
     """
@@ -44,6 +48,10 @@ class TwitterMonitorCollector(BaseCollector):
         )
 
     async def collect(self) -> list[RawContent]:
+        # If we already know this niche's credentials lack read access, skip silently
+        if self.niche in _disabled_niches:
+            return []
+
         user_id = self._resolve_user_id()
         if not user_id:
             return []
@@ -57,6 +65,9 @@ class TwitterMonitorCollector(BaseCollector):
                 expansions     = ["attachments.media_keys"],
                 media_fields   = ["url", "preview_image_url"],
             )
+        except tweepy.Unauthorized:
+            self._disable_niche("get_users_tweets returned 401")
+            return []
         except tweepy.TweepyException as exc:
             logger.error(f"[TwitterMonitor] @{self.username} fetch failed: {exc}")
             return []
@@ -125,8 +136,21 @@ class TwitterMonitorCollector(BaseCollector):
                     f"[TwitterMonitor] @{self.username} → user_id {self._user_id}"
                 )
                 return self._user_id
+        except tweepy.Unauthorized:
+            self._disable_niche("get_user returned 401")
+            return None
         except tweepy.TweepyException as exc:
             logger.error(
                 f"[TwitterMonitor] could not resolve @{self.username}: {exc}"
             )
         return None
+
+    def _disable_niche(self, reason: str) -> None:
+        """Disable all TwitterMonitor collectors for this niche (Free tier has no read access)."""
+        if self.niche not in _disabled_niches:
+            _disabled_niches.add(self.niche)
+            logger.warning(
+                f"[TwitterMonitor] Disabling tweet monitoring for '{self.niche}' — "
+                f"X API Free tier does not support read endpoints ({reason}). "
+                f"Upgrade to Basic tier ($100/mo) to enable tweet monitoring."
+            )

@@ -11,7 +11,8 @@ from loguru import logger
 
 from src.collectors.base import BaseCollector, RawContent
 
-_BASE_URL = "https://zsr.octane.gg"
+# zsr.octane.gg has a broken TLS/SNI config — use HTTP (public read-only API, no sensitive data)
+_BASE_URL = "http://zsr.octane.gg"
 _TIMEOUT  = 15
 
 
@@ -24,7 +25,8 @@ class OctaneCollector(BaseCollector):
     def __init__(self, source_id: int, config: dict, niche: str = "rocketleague"):
         super().__init__(source_id, config)
         self.niche    = niche
-        self.base_url = config.get("base_url", _BASE_URL)
+        # Force HTTP — octane.gg's HTTPS/SNI is broken
+        self.base_url = config.get("base_url", _BASE_URL).replace("https://", "http://")
 
     async def collect(self) -> list[RawContent]:
         items: list[RawContent] = []
@@ -52,6 +54,9 @@ async def _fetch_results(
             params={"tier": "S,A", "page": 1, "perPage": 10, "sort": "date:desc"},
         )
         resp.raise_for_status()
+        if "application/json" not in resp.headers.get("content-type", ""):
+            logger.error("[Octane] results fetch failed: API returned non-JSON (may be offline)")
+            return []
         data = resp.json()
     except Exception as exc:
         logger.error(f"[Octane] results fetch failed: {exc}")
@@ -117,6 +122,9 @@ async def _fetch_upcoming(
             params={"tier": "S,A", "page": 1, "perPage": 5, "sort": "date:asc", "after": _today()},
         )
         resp.raise_for_status()
+        if "application/json" not in resp.headers.get("content-type", ""):
+            logger.error("[Octane] upcoming fetch failed: API returned non-JSON (may be offline)")
+            return []
         data = resp.json()
     except Exception as exc:
         logger.error(f"[Octane] upcoming fetch failed: {exc}")

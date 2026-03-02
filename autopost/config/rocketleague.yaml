@@ -86,7 +86,7 @@ sources:
   - name: Octane.gg
     type: api
     collector: octane
-    base_url: https://zsr.octane.gg
+    base_url: http://zsr.octane.gg
     poll_interval: 900          # 15 min — matches, events, player stats
 
   - name: Liquipedia RL
