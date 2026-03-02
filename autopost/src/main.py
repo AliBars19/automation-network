@@ -13,6 +13,7 @@ Usage:
 """
 import asyncio
 import json
+import platform
 import signal
 import sys
 from pathlib import Path
@@ -130,9 +131,11 @@ def _run_poster(niche: str, client: TwitterClient) -> None:
         post_next(niche, client)
     except Exception as exc:
         logger.error(f"[Scheduler] poster [{niche}] failed: {exc}")
-        asyncio.get_event_loop().create_task(
-            _alert(f"Poster [{niche}] failed: {exc}")
-        )
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_alert(f"Poster [{niche}] failed: {exc}"))
+        except RuntimeError:
+            pass
 
 
 def _run_stale_cleanup(niche: str) -> None:
@@ -253,8 +256,15 @@ async def main() -> None:
 
     # Graceful shutdown on SIGINT / SIGTERM
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(_shutdown(scheduler)))
+    if platform.system() != "Windows":
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(_shutdown(scheduler)))
+    else:
+        # Windows doesn't support loop.add_signal_handler; use signal.signal instead
+        def _win_handler(signum, frame):
+            asyncio.ensure_future(_shutdown(scheduler))
+        signal.signal(signal.SIGINT, _win_handler)
+        signal.signal(signal.SIGTERM, _win_handler)
 
     # Keep running until cancelled
     try:
