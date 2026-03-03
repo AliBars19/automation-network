@@ -150,9 +150,15 @@ def _classify(text: str, niche: str) -> str:
     if niche == "rocketleague":
         if any(k in lower for k in ("patch", "update", "v2.", "hotfix", "fix")):
             return "patch_notes"
-        if any(k in lower for k in ("rlcs", "major", "championship", "grand final",
-                                     "tournament", "bracket", "qualifier")):
-            return "esports_result"
+        # esports_result: only if title looks like an actual result (has score-like words)
+        if any(k in lower for k in ("grand final", "bracket", "qualifier")):
+            if any(w in lower for w in ("wins", "defeat", "beats", "sweep",
+                                         "eliminat", "advance", "champion")):
+                return "esports_result"
+        # esports event coverage (articles, previews, recaps)
+        if any(k in lower for k in ("rlcs", "major", "championship",
+                                     "tournament", "regional")):
+            return "event_announcement"
         if any(k in lower for k in ("signs", "roster", "trade", "transfer",
                                      "leaves", "joins", "released")):
             return "roster_change"
@@ -164,8 +170,6 @@ def _classify(text: str, niche: str) -> str:
         if any(k in lower for k in ("item shop", "shop update", "black market",
                                      "painted", "decal")):
             return "item_shop"
-        if any(k in lower for k in ("event", "tournament", "cup", "championship")):
-            return "event_announcement"
 
     else:  # geometrydash
         if any(k in lower for k in ("update", "geometry dash 2", "robtop", "2.2",
@@ -175,10 +179,8 @@ def _classify(text: str, niche: str) -> str:
             return "level_verified"
         if any(k in lower for k in ("geode", "mod", "plugin", "modding")):
             return "mod_update"
-        if any(k in lower for k in ("rated", "rating", "star", "new level")):
-            return "level_rated"
         if any(k in lower for k in ("speedrun", "world record", "wr", "any%")):
             return "speedrun_wr"
 
-    # Generic fallback — formats as "{title}\n\n📎 {url}"
-    return "reddit_highlight"
+    # No match — skip this item (no template = won't be queued)
+    return "_unknown"
