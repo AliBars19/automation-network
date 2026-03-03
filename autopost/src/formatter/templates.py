@@ -103,24 +103,10 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "This {rank} player's {mechanic} is insane 🔥\n\n{url}",
     ],
 
-    # ── Reddit highlight ───────────────────────────────────────────────────────
-    "reddit_highlight": [
-        "{title}\n\n📎 {url}",
-        "{title} 👀\n\n{url}",
-        "r/{subreddit} 🔥\n\n{title}\n\n{url}",
-    ],
-
-    # ── Rank / competitive milestone ──────────────────────────────────────────
+    # ── Rank / competitive milestone (pro players & creators only) ───────────
     "rank_milestone": [
         "{player} has reached {rank} in Rocket League {emoji}",
-        "NEW RECORD: {player} becomes {achievement} 🏆",
         "{player} — {achievement} {emoji}",
-    ],
-
-    # ── Pro player content ────────────────────────────────────────────────────
-    "pro_player_content": [
-        "New video from {player}: \"{title}\" 🎬\n\n{url}",
-        "{player} drops new content 🎮\n\n\"{title}\"\n\n{url}",
     ],
 
     # ── Official account tweets (retweet signal) ──────────────────────────────
@@ -243,13 +229,6 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "NEW WORLD RECORD 🏆\n\n{player} just set a new {category} WR: {time}\n\nPrev: {prev_time}\n\n{url}",
         "{player} breaks the {category} world record with {time} 🏆\n\n{url}",
         "WR | {category}: {time} by {player} 🏆",
-    ],
-
-    # ── Community / Reddit highlight ──────────────────────────────────────────
-    "reddit_highlight": [
-        "{title}\n\n📎 {url}",
-        "{title} 👀\n\n{url}",
-        "r/geometrydash 🔥\n\n{title}\n\n{url}",
     ],
 
     # ── Breaking / miscellaneous news ─────────────────────────────────────────

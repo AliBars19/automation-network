@@ -58,10 +58,8 @@ _PRIORITY: dict[str, int] = {
     "esports_matchup":     4,
     "level_beaten":        5,
     "youtube_video":       5,
-    "pro_player_content":  5,
     "creator_spotlight":   5,
     "speedrun_wr":         5,
-    "reddit_highlight":    7,
     "community_clip":      7,
     "rank_milestone":      8,
 }
@@ -99,11 +97,10 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
             tweet_text = format_tweet(item)
 
             if tweet_text is None:
-                # Retweet signal — check if the collector supplied a retweet_id
+                # Either a retweet signal or a content type with no template (skip)
                 retweet_id = item.metadata.get("retweet_id")
                 if not retweet_id:
-                    logger.debug(f"[{niche}] skipping retweet-signal with no id: {item.external_id}")
-                    continue
+                    continue  # no template and no retweet — skip entirely
                 # Queue as "RETWEET:{id}" — post_next will call client.retweet()
                 tweet_text = f"RETWEET:{retweet_id}"
             else:

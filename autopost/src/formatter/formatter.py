@@ -36,8 +36,8 @@ def format_tweet(content: RawContent) -> str | None:
     """
     variants = TEMPLATES.get(content.niche, {}).get(content.content_type)
     if not variants:
-        logger.warning(f"No template for {content.niche}/{content.content_type}")
-        return _fallback(content)
+        logger.debug(f"No template for {content.niche}/{content.content_type} — skipping")
+        return None  # no template = don't post this content type
 
     if variants == [None]:
         return None  # retweet signal — poster will RT/QT directly
