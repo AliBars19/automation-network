@@ -186,6 +186,10 @@ async def _fetch_rated(
         if not level_id:
             continue
 
+        # Skip levels with no real difficulty or no stars — not newsworthy
+        if difficulty in ("Unrated", "N/A", "Unknown") or stars == 0:
+            continue
+
         items.append(RawContent(
             source_id    = source_id,
             external_id  = f"rated_{level_id}",
