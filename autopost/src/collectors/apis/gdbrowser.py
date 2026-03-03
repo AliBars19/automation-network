@@ -14,6 +14,32 @@ from src.collectors.base import BaseCollector, RawContent
 _BASE_URL = "https://gdbrowser.com/api"
 _TIMEOUT  = 15
 
+# ── Notable creators ────────────────────────────────────────────────────────
+# Levels by these creators are always posted (any difficulty).
+# All other creators only get posted if the level is an Extreme Demon.
+# Case-insensitive matching.
+_NOTABLE_CREATORS: set[str] = {s.lower() for s in (
+    # Popular community figures / content creators
+    "Viprin", "Serponge", "Michigun", "KrMaL", "Zobros", "Knobbelboy",
+    "Manix648", "Dorami", "Cyclic", "Xender Game", "AeonAir", "SpKale",
+    "Colon", "Wulzy", "Riot", "Culuc", "TriAxis", "Juniper",
+    "SrGuillester", "RobTop",
+    # Demonlist-level creators / builders
+    "OniLink", "CairoX", "MindCap", "Narwall", "iMist", "Kiba",
+    "Renn241", "Akunakunn", "Insxne97", "Cursed", "Sailent",
+    "nikroplays", "PockeWindfish", "ryamu", "xander556", "Arraegen",
+    "Exen", "GXQ", "SyQual", "icedcave", "Lavatrex", "McCoco",
+    "Diamond", "ItsHybrid", "hawkyre", "Trick", "Amplitron",
+    "stellar", "APTeamOfficial", "Linear", "Cersia", "LordVadercraft",
+    "Nexel", "Dolabill", "HushLC", "Enfur", "Wahffle", "Dolphy",
+    "Zeniux", "Drakosa", "DeniPol",
+    # Iconic extreme demon creators
+    "Bo", "Bianox", "Ggb0y", "Muffy450", "Rustam", "ILRELL",
+    "RedUniverse", "Komp", "Sohn0924", "Mulpan", "Pennutoh",
+    "Stormfly", "FunnyGame", "npesta", "paqoe", "nSwish", "Zoink",
+    "Doggie", "Technical", "Xanii", "Sunix", "Giron",
+)}
+
 # Numeric difficulty → human-readable label
 _DIFFICULTY: dict[int, str] = {
     0:  "N/A",
@@ -186,8 +212,10 @@ async def _fetch_rated(
         if not level_id:
             continue
 
-        # Skip levels with no real difficulty or no stars — not newsworthy
-        if difficulty in ("Unrated", "N/A", "Unknown") or stars == 0:
+        # Only post levels by notable creators OR Extreme Demons (demonlist-worthy)
+        is_notable  = author.lower() in _NOTABLE_CREATORS
+        is_extreme  = difficulty == "Extreme Demon"
+        if not (is_notable or is_extreme):
             continue
 
         items.append(RawContent(
