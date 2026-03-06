@@ -33,6 +33,8 @@ _BREAKING_KEYWORDS = {
     "verified", "top 1", "top 2", "top 3", "#1", "new top", "world record",
     "update", "patch", "robtop", "rlcs", "world championship", "grand final",
     "2-player", "two-player", "2p", "collab verified", "demon list",
+    "roster", "signs", "joins", "transfer", "released", "benched",
+    "free agent", "picked up", "dropped",
 }
 
 _JSON_URL = "https://old.reddit.com/r/{subreddit}/hot.json"
@@ -172,7 +174,7 @@ class RedditCollector(BaseCollector):
                 source_id    = self.source_id,
                 external_id  = post_id,
                 niche        = self.niche,
-                content_type = "reddit_highlight",
+                content_type = _detect_content_type_rss(title, self.niche),
                 title        = title,
                 url          = link,
                 body         = body,
@@ -192,12 +194,14 @@ class RedditCollector(BaseCollector):
 
 # ── Helpers (JSON path) ───────────────────────────────────────────────────────
 
-def _detect_content_type_json(post: dict) -> str:
-    flair  = (post.get("link_flair_text") or "").lower()
-    domain = post.get("domain") or ""
-    title  = (post.get("title") or "").lower()
+def _detect_content_type_rss(title: str, niche: str) -> str:
+    """Keyword-based content type detection for RSS entries (no flair/domain)."""
+    return _detect_content_type_from_title(title.lower(), niche)
 
-    # GD-specific detection
+
+def _detect_content_type_from_title(title: str, niche: str) -> str:
+    """Shared title-keyword detection used by both JSON and RSS paths."""
+    # GD-specific
     if any(kw in title for kw in ("top 1", "new #1", "new top")):
         return "top1_verified"
     if any(kw in title for kw in ("verified", "verification")):
@@ -206,19 +210,38 @@ def _detect_content_type_json(post: dict) -> str:
         return "level_beaten"
     if any(kw in title for kw in ("demon list", "demonlist")):
         return "demon_list_update"
-    if any(kw in title for kw in ("update", "patch", "robtop")):
-        return "game_update"
 
-    # RL-specific detection
-    if any(kw in title for kw in ("rlcs", "grand final", "championship", "major")):
-        return "esports_result"
-    if any(kw in title for kw in ("roster", "signs", "joins", "transfer")):
+    # RL-specific
+    if any(kw in title for kw in ("roster", "signs", "joins", "transfer",
+                                   "leaves", "released", "benched", "sub",
+                                   "free agent", "picked up", "dropped")):
         return "roster_change"
-    if any(kw in title for kw in ("item shop",)):
-        return "item_shop"
+    if any(kw in title for kw in ("rlcs", "grand final", "championship",
+                                   "major", "worlds")):
+        return "esports_result"
+    if any(kw in title for kw in ("update", "patch", "hotfix")):
+        if niche == "rocketleague":
+            return "patch_notes"
+        return "game_update"
     if any(kw in title for kw in ("season", "new season")):
         return "season_start"
+    if any(kw in title for kw in ("item shop",)):
+        return "item_shop"
 
+    return "reddit_highlight"
+
+
+def _detect_content_type_json(post: dict) -> str:
+    flair  = (post.get("link_flair_text") or "").lower()
+    domain = post.get("domain") or ""
+    title  = (post.get("title") or "").lower()
+
+    # Title-keyword detection (shared with RSS path)
+    from_title = _detect_content_type_from_title(title, "")
+    if from_title != "reddit_highlight":
+        return from_title
+
+    # JSON-only: flair / domain / video detection for clips
     if flair in _CLIP_FLAIRS or any(d in domain for d in _CLIP_DOMAINS) or post.get("is_video"):
         return "community_clip"
     return "reddit_highlight"
