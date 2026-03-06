@@ -210,6 +210,10 @@ def _build_context(content: RawContent) -> dict:
         # ── Flashback / on this day ──────────────────────────────────────────
         "years_ago": "",
         "year":      "",
+
+        # ── Stat milestone ───────────────────────────────────────────────────
+        "stat":      "",
+        "value":     "",
     }
 
     # metadata from the collector overrides base defaults (enables rich API data)
@@ -253,6 +257,7 @@ def _pick_emoji(niche: str, content_type: str) -> str:
         "speedrun_wr":         "🏆",
         "breaking_news":       "🚨",
         "flashback":           "📅",
+        "stat_milestone":      "📊",
     }
     return _MAP.get(content_type, "📢")
 

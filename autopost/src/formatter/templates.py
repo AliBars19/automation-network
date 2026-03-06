@@ -115,6 +115,11 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{years_ago} years ago today: {headline}",
     ],
 
+    # ── Stat milestone ─────────────────────────────────────────────────────────
+    "stat_milestone": [
+        "{headline}",
+    ],
+
     # ── Official account tweets (retweet signal) ──────────────────────────────
     "official_tweet": [None],
 }

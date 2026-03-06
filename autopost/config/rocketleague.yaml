@@ -111,6 +111,11 @@ sources:
     collector: flashback
     poll_interval: 86400        # once per day — "on this day" historical content
 
+  - name: RL Stat Milestones
+    type: api
+    collector: rl_stats
+    poll_interval: 604800       # once per week — all-time stat leaderboard tweets
+
   # ── News / coverage sites ────────────────────────────────────────────────────
 
   - name: BLAST.tv RL News

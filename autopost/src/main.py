@@ -29,6 +29,7 @@ from src.collectors.apis.gdbrowser import GDBrowserCollector
 from src.collectors.apis.github import GitHubCollector
 from src.collectors.apis.octane import OctaneCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
+from src.collectors.apis.rl_stats import RLStatsCollector
 from src.collectors.rss import RSSCollector
 from src.collectors.reddit import RedditCollector
 from src.collectors.scraper import ScraperCollector
@@ -65,6 +66,7 @@ _API_MAP = {
     "octane":       OctaneCollector,
     "github":       GitHubCollector,
     "flashback":    FlashbackCollector,
+    "rl_stats":     RLStatsCollector,
 }
 
 
