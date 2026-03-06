@@ -109,11 +109,6 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{player} — {achievement} {emoji}",
     ],
 
-    # ── Reddit highlight (catch-all for generic Reddit posts) ─────────────────
-    "reddit_highlight": [
-        "{title}\n\n{url}",
-    ],
-
     # ── Flashback / on this day ────────────────────────────────────────────────
     "flashback": [
         "{headline}",
@@ -220,11 +215,6 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "speedrun_wr": [
         "{player} has set a new {category} world record: {time}.\n\nPrevious: {prev_time}\n\n{url}",
         "{player} breaks the {category} world record with {time}.\n\n{url}",
-    ],
-
-    # ── Reddit highlight (catch-all for generic Reddit posts) ─────────────────
-    "reddit_highlight": [
-        "{title}\n\n{url}",
     ],
 
     # ── Breaking / miscellaneous news ─────────────────────────────────────────
