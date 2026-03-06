@@ -109,6 +109,12 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{player} — {achievement} {emoji}",
     ],
 
+    # ── Flashback / on this day ────────────────────────────────────────────────
+    "flashback": [
+        "{headline}",
+        "{years_ago} years ago today: {headline}",
+    ],
+
     # ── Official account tweets (retweet signal) ──────────────────────────────
     "official_tweet": [None],
 }

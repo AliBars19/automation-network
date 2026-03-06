@@ -24,6 +24,7 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config.settings import LOG_LEVEL, LOGS_DIR, DRY_RUN
+from src.collectors.apis.flashback import FlashbackCollector
 from src.collectors.apis.gdbrowser import GDBrowserCollector
 from src.collectors.apis.github import GitHubCollector
 from src.collectors.apis.octane import OctaneCollector
@@ -63,6 +64,7 @@ _API_MAP = {
     "gdbrowser":    GDBrowserCollector,
     "octane":       OctaneCollector,
     "github":       GitHubCollector,
+    "flashback":    FlashbackCollector,
 }
 
 

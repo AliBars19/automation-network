@@ -61,6 +61,7 @@ _PRIORITY: dict[str, int] = {
     "creator_spotlight":   5,
     "speedrun_wr":         5,
     "community_clip":      7,
+    "flashback":           7,
     "rank_milestone":      8,
 }
 _DEFAULT_PRIORITY = 5

@@ -206,6 +206,10 @@ def _build_context(content: RawContent) -> dict:
 
         # ── GD — mod ──────────────────────────────────────────────────────────
         "mod_name":   title,
+
+        # ── Flashback / on this day ──────────────────────────────────────────
+        "years_ago": "",
+        "year":      "",
     }
 
     # metadata from the collector overrides base defaults (enables rich API data)
@@ -248,6 +252,7 @@ def _pick_emoji(niche: str, content_type: str) -> str:
         "creator_spotlight":   "🎨",
         "speedrun_wr":         "🏆",
         "breaking_news":       "🚨",
+        "flashback":           "📅",
     }
     return _MAP.get(content_type, "📢")
 

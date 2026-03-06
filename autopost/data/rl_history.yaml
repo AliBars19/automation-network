@@ -1,0 +1,100 @@
+# Notable dated events in Rocket League history.
+# The flashback collector checks this file daily and posts any event
+# whose month/day matches today.  Only add events with confirmed dates.
+#
+# Fields: date (YYYY-MM-DD), event, headline, details (optional),
+#         winner/loser/score (optional), url (optional), image_url (optional).
+
+events:
+
+  # ── RLCS World Championships ─────────────────────────────────────────────────
+
+  - date: "2016-08-07"
+    event: "RLCS Season 1 Finals"
+    headline: "On this day in 2016, iBUYPOWER Cosmic won the first-ever RLCS World Championship."
+    details: "iBUYPOWER defeated FlipSid3 Tactics 4-2 in the Grand Finals in Los Angeles."
+    winner: "iBUYPOWER Cosmic"
+    loser: "FlipSid3 Tactics"
+    score: "4-2"
+
+  - date: "2016-12-04"
+    event: "RLCS Season 2 Finals"
+    headline: "On this day in 2016, FlipSid3 Tactics won the RLCS Season 2 World Championship in Amsterdam."
+    winner: "FlipSid3 Tactics"
+    loser: "Mock-It eSports EU"
+
+  - date: "2017-06-04"
+    event: "RLCS Season 3 Finals"
+    headline: "On this day in 2017, Northern Gaming won the RLCS Season 3 World Championship — Turbopolsa's first title."
+    details: "Northern Gaming won in Los Angeles. Turbopolsa would go on to win a record 4 World Championships."
+    winner: "Northern Gaming"
+
+  - date: "2017-11-12"
+    event: "RLCS Season 4 Finals"
+    headline: "On this day in 2017, Gale Force eSports swept Method 4-0 to win the RLCS Season 4 World Championship."
+    details: "Turbopolsa's second title. Gale Force's dominant 4-0 Grand Final remains one of the most one-sided in RLCS history."
+    winner: "Gale Force eSports"
+    loser: "Method"
+    score: "4-0"
+
+  - date: "2018-06-10"
+    event: "RLCS Season 5 Finals"
+    headline: "On this day in 2018, Dignitas won the RLCS Season 5 World Championship in London — Turbopolsa's third title."
+    winner: "Dignitas"
+    loser: "NRG Esports"
+
+  - date: "2018-11-11"
+    event: "RLCS Season 6 Finals"
+    headline: "On this day in 2018, Cloud9 won the RLCS Season 6 World Championship after starting in the Lower Bracket."
+    details: "Cloud9 defeated Dignitas in Las Vegas, ending their dynasty."
+    winner: "Cloud9"
+    loser: "Dignitas"
+
+  - date: "2019-06-23"
+    event: "RLCS Season 7 Finals"
+    headline: "On this day in 2019, Renault Vitality won the RLCS Season 7 World Championship in Newark."
+    winner: "Renault Vitality"
+
+  - date: "2019-12-15"
+    event: "RLCS Season 8 Finals"
+    headline: "On this day in 2019, NRG won the RLCS Season 8 World Championship in Madrid — Turbopolsa's record-breaking 4th title."
+    details: "Turbopolsa became the only player in RLCS history to win 4 World Championships."
+    winner: "NRG Esports"
+
+  - date: "2022-08-14"
+    event: "RLCS 2021-22 World Championship"
+    headline: "On this day in 2022, Team BDS won the RLCS 2021-22 World Championship — the first post-COVID LAN Worlds."
+    details: "Team BDS defeated G2 Esports in Fort Worth, TX."
+    winner: "Team BDS"
+    loser: "G2 Esports"
+
+  - date: "2023-08-13"
+    event: "RLCS 2022-23 World Championship"
+    headline: "On this day in 2023, Team Vitality won the RLCS 2022-23 World Championship in Dusseldorf."
+    details: "$2.1M prize pool. Vitality's dominant run included a 4-0 Grand Final."
+    winner: "Team Vitality"
+
+  - date: "2025-09-14"
+    event: "RLCS 2025 World Championship"
+    headline: "On this day in 2025, NRG won the RLCS 2025 World Championship 4-1 over Team Falcons in Lyon."
+    details: "BeastMode named MVP. NRG's second World Championship title."
+    winner: "NRG Esports"
+    loser: "Team Falcons"
+    score: "4-1"
+
+  # ── Other notable dates ──────────────────────────────────────────────────────
+
+  - date: "2015-07-07"
+    event: "Rocket League Launch"
+    headline: "On this day in 2015, Rocket League launched on PS4 and PC."
+    details: "Psyonix's vehicular soccer game would go on to become one of the most popular esports titles in the world."
+
+  - date: "2020-09-23"
+    event: "Rocket League Free-to-Play"
+    headline: "On this day in 2020, Rocket League went free-to-play on the Epic Games Store."
+    details: "The transition brought millions of new players. Rocket League was delisted from Steam for new purchases."
+
+  - date: "2020-04-01"
+    event: "RLCS Season 9 Cancelled"
+    headline: "On this day in 2020, the RLCS Season 9 World Championship was cancelled due to the COVID-19 pandemic."
+    details: "The event was planned for Dallas. No World Championship was held until 2022."
