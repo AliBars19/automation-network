@@ -20,6 +20,10 @@ from config.settings import MEDIA_DIR
 TARGET_W = 1200
 TARGET_H = 675
 
+# Don't upscale images smaller than this — they'll look blurry
+MIN_SOURCE_W = 400
+MIN_SOURCE_H = 300
+
 # Max file size Twitter accepts for images (5 MB)
 MAX_BYTES = 5 * 1024 * 1024
 
@@ -105,27 +109,45 @@ def _download(url: str) -> bytes | None:
 
 def _resize(raw: bytes, source_url: str = "") -> bytes | None:
     """
-    Open raw image bytes, resize/crop to 1200×675, return JPEG bytes.
-    Strategy: scale to fit 1200×675, then centre-crop any excess.
+    Open raw image bytes, resize for Twitter, return JPEG bytes.
+    - Skip images too small to look good (< 400x300).
+    - Large images: scale down and centre-crop to 1200x675 (16:9).
+    - Medium images: keep native size, no upscale.
     """
     try:
         from io import BytesIO
 
         img = Image.open(BytesIO(raw)).convert("RGB")
 
-        # Scale so both dimensions are at least TARGET size (cover mode)
-        scale = max(TARGET_W / img.width, TARGET_H / img.height)
+        # Reject tiny source images — they'll look awful upscaled
+        if img.width < MIN_SOURCE_W and img.height < MIN_SOURCE_H:
+            logger.debug(
+                f"[Media] source too small ({img.width}x{img.height}), skipping: "
+                f"{source_url[:60]}"
+            )
+            return None
+
+        # Only scale DOWN, never up
+        target_w = min(TARGET_W, img.width)
+        target_h = min(TARGET_H, img.height)
+
+        # If image is large enough, use full target dimensions
+        if img.width >= TARGET_W and img.height >= TARGET_H:
+            target_w, target_h = TARGET_W, TARGET_H
+
+        # Scale so both dimensions are at least target size (cover mode)
+        scale = max(target_w / img.width, target_h / img.height)
         new_w = int(img.width * scale)
         new_h = int(img.height * scale)
         img = img.resize((new_w, new_h), Image.LANCZOS)
 
         # Centre crop to exact target
-        left = (new_w - TARGET_W) // 2
-        top  = (new_h - TARGET_H) // 2
-        img  = img.crop((left, top, left + TARGET_W, top + TARGET_H))
+        left = (new_w - target_w) // 2
+        top  = (new_h - target_h) // 2
+        img  = img.crop((left, top, left + target_w, top + target_h))
 
         out = BytesIO()
-        img.save(out, format="JPEG", quality=85, optimize=True)
+        img.save(out, format="JPEG", quality=92, optimize=True)
         return out.getvalue()
 
     except Exception as exc:
