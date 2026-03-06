@@ -172,15 +172,25 @@ def _classify(text: str, niche: str) -> str:
             return "item_shop"
 
     else:  # geometrydash
+        if any(k in lower for k in ("top 1", "new #1", "new top 1", "hardest level")):
+            return "top1_verified"
         if any(k in lower for k in ("update", "geometry dash 2", "robtop", "2.2",
                                      "patch", "hotfix")):
             return "game_update"
-        if any(k in lower for k in ("verified", "demon", "extreme", "top 1", "#1")):
+        if any(k in lower for k in ("verified", "verification", "verifier",
+                                     "two-player", "2-player", "2p", "collab")):
             return "level_verified"
+        if any(k in lower for k in ("beaten", "new victor", "first victor",
+                                     "completes", "completed")):
+            return "level_beaten"
+        if any(k in lower for k in ("demon list", "demonlist", "demon", "extreme")):
+            return "demon_list_update"
+        if any(k in lower for k in ("rated", "star rate")):
+            return "level_rated"
         if any(k in lower for k in ("geode", "mod", "plugin", "modding")):
             return "mod_update"
         if any(k in lower for k in ("speedrun", "world record", "wr", "any%")):
             return "speedrun_wr"
 
-    # No match — skip this item (no template = won't be queued)
-    return "_unknown"
+    # No match — use generic breaking_news so the item still gets queued
+    return "breaking_news"

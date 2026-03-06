@@ -27,10 +27,13 @@ _RL_KEYWORDS: list[tuple[list[str], str]] = [
 ]
 
 _GD_KEYWORDS: list[tuple[list[str], str]] = [
+    (["top 1", "new #1", "new top 1", "hardest level"],                       "top1_verified"),
     (["geode", "mod loader"],                                                 "mod_update"),
     (["update", "patch", "new version", " 2.2", " 2.1"],                     "game_update"),
-    (["demon list", "top 1"],                                                 "demon_list_update"),
-    (["rated"],                                                               "level_rated"),
+    (["verified", "verification", "two-player", "2-player", "2p", "collab"], "level_verified"),
+    (["beaten", "new victor", "first victor", "completes"],                   "level_beaten"),
+    (["demon list", "demonlist"],                                             "demon_list_update"),
+    (["rated", "star rate"],                                                  "level_rated"),
     (["daily"],                                                               "daily_level"),
     (["weekly demon"],                                                        "weekly_demon"),
 ]
