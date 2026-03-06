@@ -28,6 +28,13 @@ _HEADERS = {
 _CLIP_FLAIRS  = {"clip", "highlight", "montage", "insane", "sick"}
 _CLIP_DOMAINS = {"youtube.com", "youtu.be", "streamable.com", "medal.tv", "clips.twitch.tv"}
 
+# Keywords that indicate high-priority GD/RL news — these posts bypass min_score
+_BREAKING_KEYWORDS = {
+    "verified", "top 1", "top 2", "top 3", "#1", "new top", "world record",
+    "update", "patch", "robtop", "rlcs", "world championship", "grand final",
+    "2-player", "two-player", "2p", "collab verified", "demon list",
+}
+
 _JSON_URL = "https://old.reddit.com/r/{subreddit}/hot.json"
 _RSS_URL  = "https://www.reddit.com/r/{subreddit}/.rss"
 
@@ -86,9 +93,14 @@ class RedditCollector(BaseCollector):
             post = child.get("data", {})
 
             score = int(post.get("score", 0))
-            if score < self.min_score:
-                continue
             if post.get("stickied", False):
+                continue
+
+            # Breaking news bypasses min_score if it has at least 10 upvotes
+            title_lower = post.get("title", "").lower()
+            is_breaking = any(kw in title_lower for kw in _BREAKING_KEYWORDS)
+            effective_min = 10 if is_breaking else self.min_score
+            if score < effective_min:
                 continue
 
             items.append(RawContent(
@@ -183,6 +195,29 @@ class RedditCollector(BaseCollector):
 def _detect_content_type_json(post: dict) -> str:
     flair  = (post.get("link_flair_text") or "").lower()
     domain = post.get("domain") or ""
+    title  = (post.get("title") or "").lower()
+
+    # GD-specific detection
+    if any(kw in title for kw in ("top 1", "new #1", "new top")):
+        return "top1_verified"
+    if any(kw in title for kw in ("verified", "verification")):
+        return "level_verified"
+    if any(kw in title for kw in ("beaten", "new victor", "first victor")):
+        return "level_beaten"
+    if any(kw in title for kw in ("demon list", "demonlist")):
+        return "demon_list_update"
+    if any(kw in title for kw in ("update", "patch", "robtop")):
+        return "game_update"
+
+    # RL-specific detection
+    if any(kw in title for kw in ("rlcs", "grand final", "championship", "major")):
+        return "esports_result"
+    if any(kw in title for kw in ("roster", "signs", "joins", "transfer")):
+        return "roster_change"
+    if any(kw in title for kw in ("item shop",)):
+        return "item_shop"
+    if any(kw in title for kw in ("season", "new season")):
+        return "season_start"
 
     if flair in _CLIP_FLAIRS or any(d in domain for d in _CLIP_DOMAINS) or post.get("is_video"):
         return "community_clip"
