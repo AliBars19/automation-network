@@ -70,6 +70,11 @@ class TwitterMonitorCollector(BaseCollector):
                         f"account may not exist"
                     )
                     return []
+                if resp.status_code == 429:
+                    logger.debug(
+                        f"[TwitterMonitor] @{self.username} rate-limited (429)"
+                    )
+                    return []
                 resp.raise_for_status()
                 html = resp.text
         except Exception as exc:
