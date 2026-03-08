@@ -43,6 +43,7 @@ from src.database.db import (
     recent_source_error_count,
     record_source_error,
 )
+from src.monitoring.health_check import run_health_check
 from src.poster.client import TwitterClient
 from src.poster.queue import collect_and_queue, post_next, skip_stale
 
@@ -238,6 +239,17 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
             minute = 0,
             id     = "db_cleanup",
             name   = "Daily DB cleanup (30-day rolling window)",
+        )
+
+    # ── Daily health check (03:05 UTC) — probe all sources, Discord report ───
+    if not scheduler.get_job("health_check"):
+        scheduler.add_job(
+            run_health_check,
+            "cron",
+            hour   = 3,
+            minute = 5,
+            id     = "health_check",
+            name   = "Daily source health check",
         )
 
     return scheduler
