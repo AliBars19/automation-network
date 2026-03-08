@@ -34,13 +34,6 @@ GD_CREDENTIALS = {
     "access_token_secret":  os.getenv("GD_ACCESS_TOKEN_SECRET"),
 }
 
-# ── Reddit ─────────────────────────────────────────────────────────────────────
-REDDIT_CONFIG = {
-    "client_id":     os.getenv("REDDIT_CLIENT_ID"),
-    "client_secret": os.getenv("REDDIT_CLIENT_SECRET"),
-    "user_agent":    os.getenv("REDDIT_USER_AGENT", "autopost:v1.0"),
-}
-
 # ── YouTube ────────────────────────────────────────────────────────────────────
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 

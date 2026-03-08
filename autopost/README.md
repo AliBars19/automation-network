@@ -243,6 +243,82 @@ sudo systemctl restart autopost
 
 ---
 
+## Quick Reference (after setup)
+
+### Service control
+
+```bash
+# Start / stop / restart
+sudo systemctl start autopost
+sudo systemctl stop autopost
+sudo systemctl restart autopost
+
+# Check if running
+sudo systemctl status autopost
+```
+
+### Monitor
+
+```bash
+# Live log stream
+sudo journalctl -u autopost -f
+
+# Last 100 log lines
+sudo journalctl -u autopost -n 100
+
+# Today's log file
+tail -f /root/automation-network/autopost/logs/autopost_$(date +%Y-%m-%d).log
+```
+
+### Database queries
+
+```bash
+# Queue depth by niche and status
+sqlite3 /root/automation-network/autopost/data/autopost.db \
+  "SELECT niche, status, COUNT(*) FROM tweet_queue GROUP BY niche, status;"
+
+# Today's posted tweets
+sqlite3 /root/automation-network/autopost/data/autopost.db \
+  "SELECT niche, COUNT(*) FROM post_log WHERE posted_at >= date('now') GROUP BY niche;"
+
+# Recent source errors (last hour)
+sqlite3 /root/automation-network/autopost/data/autopost.db \
+  "SELECT s.name, COUNT(e.id) errors FROM source_errors e
+   JOIN sources s ON s.id = e.source_id
+   WHERE e.occurred_at >= datetime('now','-1 hour')
+   GROUP BY s.name ORDER BY errors DESC;"
+
+# Re-enable a disabled source
+sqlite3 /root/automation-network/autopost/data/autopost.db \
+  "UPDATE sources SET enabled = 1 WHERE name = 'Source Name Here';"
+sudo systemctl restart autopost
+```
+
+### Go live / dry run toggle
+
+```bash
+# Edit .env
+nano /root/automation-network/autopost/.env
+# Set DRY_RUN=false for live, DRY_RUN=true for dry run
+
+# Restart to apply
+sudo systemctl restart autopost
+```
+
+### Update code from GitHub
+
+```bash
+bash /root/automation-network/autopost/scripts/deploy.sh
+```
+
+### Backup database
+
+```bash
+bash /root/automation-network/autopost/scripts/backup_db.sh
+```
+
+---
+
 ## Posting schedule
 
 - **Target:** 8–15 tweets/day per account

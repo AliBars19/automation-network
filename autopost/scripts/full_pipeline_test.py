@@ -485,8 +485,15 @@ def test_rate_limiter(buf: list) -> Section:
 # ── Test 10: DRY_RUN poster ───────────────────────────────────────────────────
 
 def test_dry_poster(buf: list) -> Section:
-    import os
-    os.environ["DRY_RUN"] = "true"
+    import src.poster.client as _client_mod
+    import config.settings as _settings_mod
+    # settings.DRY_RUN is evaluated at import time, so patching os.environ after the
+    # fact has no effect.  Patch the already-loaded module attributes directly.
+    _orig_settings = _settings_mod.DRY_RUN
+    _orig_client   = _client_mod.DRY_RUN
+    _settings_mod.DRY_RUN = True
+    _client_mod.DRY_RUN   = True
+
     s = Section("10. DRY_RUN Poster", buf)
     buf.append("\n## 10. DRY_RUN Poster\n")
 
@@ -511,6 +518,9 @@ def test_dry_poster(buf: list) -> Section:
             s.fail(f"[{niche}] dry poster error: {e}")
 
     buf.append(f"\n> {s.summary()}\n")
+    # Restore original values
+    _settings_mod.DRY_RUN = _orig_settings
+    _client_mod.DRY_RUN   = _orig_client
     return s
 
 

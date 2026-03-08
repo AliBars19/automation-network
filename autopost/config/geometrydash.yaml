@@ -5,38 +5,6 @@ account:
 # ── Content sources ────────────────────────────────────────────────────────────
 sources:
 
-  # ── Reddit ──────────────────────────────────────────────────────────────────
-
-  - name: r/geometrydash
-    type: reddit
-    subreddit: geometrydash
-    min_score: 100
-    poll_interval: 300          # 5 min
-
-  - name: r/gdlevels
-    type: reddit
-    subreddit: gdlevels
-    min_score: 50
-    poll_interval: 600          # 10 min — new level showcases
-
-  - name: r/geometrydashcringe
-    type: reddit
-    subreddit: geometrydashcringe
-    min_score: 200
-    poll_interval: 1800         # 30 min — community drama / viral moments
-
-  - name: r/challengelist
-    type: reddit
-    subreddit: challengelist
-    min_score: 25
-    poll_interval: 900          # 15 min — GD challenge list community updates
-
-  - name: r/gdmods
-    type: reddit
-    subreddit: gdmods
-    min_score: 25
-    poll_interval: 1800         # 30 min — Geode mods and GD modding community
-
   # ── Official X / Twitter accounts ───────────────────────────────────────────
 
   - name: "@RobTopGames"
@@ -148,42 +116,42 @@ sources:
 
   - name: GD YouTube — EVW
     type: youtube
-    channel_id: UCKlPl6bPJbvt9lQMnl2LiFQ
+    channel_id: UC_BXQNOzX7ALIf8FkDqOahQ
     poll_interval: 1800
 
   - name: GD YouTube — Wulzy
     type: youtube
-    channel_id: UCodB8t2s6PuFqxrqHFzUKsQ
+    channel_id: UCoJzXOukwqP96D0Uczqf74Q
     poll_interval: 1800
 
   - name: GD YouTube — GD Colon
     type: youtube
-    channel_id: UCyPtPvI3ntpCPMIXCRZVg1A
+    channel_id: UCFDsxSlQXpLLpVScy2NmbcQ
     poll_interval: 1800
 
   - name: GD YouTube — Nexus
     type: youtube
-    channel_id: UCnFLWMCXeN3KHC3a4PlGVOw
+    channel_id: UCZwP1iUQiAKYQp5w-9mJb_w
     poll_interval: 1800         # 1M+ subs, level showcases and extreme demons
 
   - name: GD YouTube — ItzBran
     type: youtube
-    channel_id: UCWFPPm18a7oXF2IvJR3LNNA
+    channel_id: UC4DmiLg94JMXUZyc3uG5kMQ
     poll_interval: 1800         # 4M+ subs, challenges, level experimentation
 
   - name: GD YouTube — Viprin
     type: youtube
-    channel_id: UCGbCBpZLLsGbE7KZ2axLozA
+    channel_id: UCUwapObI2gw2Tovu5oj-wng
     poll_interval: 1800         # level reviews, competitions, tutorials
 
   - name: GD YouTube — Juniper
     type: youtube
-    channel_id: UCT9RFrVRJPvSjZ3BoKPzq7w
+    channel_id: UCOE3keaPI49vGbygNwsNqgA
     poll_interval: 3600
 
   - name: GD YouTube — Moldy
     type: youtube
-    channel_id: UCBFGCKCpSKOBmkIhsxlIoNA
+    channel_id: UCseHDTIJ6ecGo2WcNAFLFCg
     poll_interval: 3600
 
   - name: GD YouTube — Knobbelboy

@@ -31,7 +31,6 @@ from src.collectors.apis.octane import OctaneCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
 from src.collectors.apis.rl_stats import RLStatsCollector
 from src.collectors.rss import RSSCollector
-from src.collectors.reddit import RedditCollector
 from src.collectors.scraper import ScraperCollector
 from src.collectors.twitter_monitor import TwitterMonitorCollector
 from src.collectors.youtube import YouTubeCollector
@@ -73,8 +72,6 @@ _API_MAP = {
 def _make_collector(source_id: int, type_: str, config: dict, niche: str):
     if type_ == "rss":
         return RSSCollector(source_id, config, niche)
-    if type_ == "reddit":
-        return RedditCollector(source_id, config, niche)
     if type_ == "scraper":
         return ScraperCollector(source_id, config, niche)
     if type_ == "twitter":

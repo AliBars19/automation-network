@@ -1,6 +1,6 @@
 # AutoPost Pipeline Test Results
 
-**Run at:** 2026-02-28 15:29 UTC
+**Run at:** 2026-03-01 21:33 UTC
 
 **Platform:** Python 3.11.9 on Windows
 
@@ -13,13 +13,13 @@
 ## 1. Database Integrity
 
 - ✅ init_db() completed without error
-- ✅ All 4 tables present: post_log, raw_content, sources, sqlite_sequence, tweet_queue
-- ℹ️ tweet_queue: 179 rows
-- ℹ️ raw_content: 179 rows
-- ℹ️ sources: 51 rows
+- ✅ All 4 tables present: post_log, raw_content, source_errors, sources, sqlite_sequence, tweet_queue
 - ℹ️ post_log: 2 rows
-- ✅ Sources seeded — geometrydash: 27 sources
-- ✅ Sources seeded — rocketleague: 24 sources
+- ℹ️ raw_content: 179 rows
+- ℹ️ tweet_queue: 179 rows
+- ℹ️ sources: 67 rows
+- ✅ Sources seeded — geometrydash: 34 sources
+- ✅ Sources seeded — rocketleague: 33 sources
 
 > [PASS] 4/4 checks passed, 0 warnings
 
@@ -31,27 +31,24 @@
 
 - ✅ Fetched 10 entries in 0.34s
 - ℹ️ Content types: {'event_announcement': 1, 'season_start': 3, 'patch_notes': 4, 'collab_announcement': 2}
-- ℹ️ Sample tweet (event_announcement, 278 chars):
+- ℹ️ Sample tweet (event_announcement, 174 chars):
 ```
-RLCS Get Drops While Cheering On Your Favorite Team in the RLCS Boston Major STARTS NOW 🚨
+Get Drops While Cheering On Your Favorite Team in the RLCS Boston Major — Day  is underway 🎮
 
-This February, 16 of Rocket League’s top teams take the pitch at the Agganis Arena in Boston, Massachusetts, for a…
-
-https://store.steampowered.com/news/app/252950/view/738163097677595118
+Schedule: https://store.steampowered.com/news/app/252950/view/738163097677595118
 ```
 
 **Steam News (GD)**
 
-- ✅ Fetched 10 entries in 0.30s
+- ✅ Fetched 10 entries in 0.31s
 - ℹ️ Content types: {'game_update': 10}
 - ℹ️ Sample tweet (game_update, 243 chars):
 ```
-RobTop has released the latest update notes 👀
+Geometry Dash latest is now live.
 
-Here's what's new:
-- The nominees for The Geometry Dash Awards 2025 have been announced!
-- Vote to decide the winners here .
-- Before voting, you can watch the video below to see all the nominees.
+The winners of The Geometry Dash Awards 2025 have been decided! Watch the video to see the best that Geometry Dash had to offer in 2025.
+
+https://store.steampowered.com/news/app/322170/view/498347586726396669
 ```
 
 **RL Blog**
@@ -63,28 +60,24 @@ Here's what's new:
 
 ## 3. Pointercrate (GD Demon List)
 
-- ✅ Fetched 50 demons in 0.61s
+- ✅ Fetched 50 demons in 0.64s
 - ℹ️ Content type breakdown: {'top1_verified': 1, 'level_verified': 49}
 
 **Current #1: Thinking Space II**
 
 - ℹ️ Verifier: [67] Zoink
 - ℹ️ Position metadata: 1
-- ✅ top1_verified tweet (111 chars):
+- ✅ top1_verified tweet (114 chars):
 ```
-🚨 NEW TOP 1
+THE NEW TOP 1 IS HERE 🚨
 
-"Thinking Space II" has been verified by [67] Zoink
+"Thinking Space II" — verified by [67] Zoink
 
-#1 on the Demon List — verified by [67] Zoink
+https://www.youtube.com/watch?v=CELNmHwln_c
 ```
 - ℹ️ level_verified sample (Flamewall, #2):
 ```
-[400] CuatrocientosYT verifies "Flamewall" 🏆
-
-#2 on the Demon List
-
-https://www.youtube.com/watch?v=x4Io4zkWVRw
+[400] CuatrocientosYT — verified "Flamewall" (#2 on Demon List) 🏆
 ```
 
 > [PASS] 2/2 checks passed, 0 warnings
@@ -94,10 +87,12 @@ https://www.youtube.com/watch?v=x4Io4zkWVRw
 
 - ⚠️ Daily level returned no data (GDBrowser server-side issue on sentinel IDs)
 - ⚠️ Weekly demon returned no data (same GDBrowser issue)
-- ✅ Rated levels: 10 fetched in 0.86s
-- ℹ️ Sample rated level tweet (54 chars):
+- ✅ Rated levels: 10 fetched in 0.85s
+- ℹ️ Sample rated level tweet (63 chars):
 ```
-New Unrated rated: "pixel Madness" by MrPhotatoFries ⭐
+"Autoplay 2" by moneyking23 just got rated ⭐
+
+Unrated — 0 stars
 ```
 
 > [PASS] 1/1 checks passed, 2 warnings
@@ -116,46 +111,41 @@ New Unrated rated: "pixel Madness" by MrPhotatoFries ⭐
 
 ### Rocket League
 
-- ✅ `patch_notes` (130 chars)
+- ✅ `patch_notes` (123 chars)
 ```
-ROCKET LEAGUE UPDATE v2.64 IS LIVE 🔄
+NEW ROCKET LEAGUE UPDATE (v2.64) OUT NOW:
 
-- New car body added
-- Bug fixes
-- Performance improvements
+• New car body added
+• Bug fixes
+• Performance improvements
 
-Full notes: https://example.com
+https://example.com
 ```
-- ✅ `esports_result` (97 chars)
+- ✅ `esports_result` (51 chars)
 ```
-RLCS World Championship Grand Finals
+RLCS World Championship RESULTS 🏆
 
 Vitality 4-2 NRG
-
-Vitality are your RLCS Worlds Champions 🏆
 ```
-- ✅ `esports_matchup` (74 chars)
+- ✅ `esports_matchup` (64 chars)
 ```
-MATCH ALERT 🚨
+RLCS Spring Major Quarterfinals is set:
 
 G2 vs Faze
-RLCS Spring Major — Quarterfinals
 
-18:00 UTC UTC
+Who wins? 👇
 ```
-- ✅ `roster_change` (29 chars)
+- ✅ `roster_change` (18 chars)
 ```
-NRG sign jstn for Season 14 🔄
+jstn — joins NRG 🔄
 ```
-- ✅ `item_shop` (152 chars)
+- ✅ `item_shop` (111 chars)
 ```
-New items in the Rocket League Item Shop today:
+TODAY'S ITEM SHOP IS LIVE 🛒
 
 • Titanium White Octane
 • Black Market Decal: Heatwave
 • Goal Explosion: Fireworks
-
-https://example.com
 ```
 - ✅ `season_start` (130 chars)
 ```
@@ -174,48 +164,44 @@ Spongebob x Rocket League is CONFIRMED 👀
 
 Spongebob themed car + decals
 ```
-- ✅ `community_clip` (35 chars)
+- ✅ `community_clip` (52 chars)
 ```
-Test title 🔥
+GarrettG just pulled off this 👇
 
-📎 https://example.com
+https://example.com
 ```
-- ✅ `reddit_highlight` (33 chars)
+- ✅ `reddit_highlight` (49 chars)
 ```
+r/RocketLeague 🔥
+
 Test title
 
-📎 https://example.com
+https://example.com
 ```
 
 ### Geometry Dash
 
-- ✅ `top1_verified` (85 chars)
+- ✅ `top1_verified` (106 chars)
 ```
-THE NEW TOP 1 IS HERE 🚨
+Zoink just verified "Abyss of Darkness" — the NEW #1 on the Demon List 🏆
 
-"Abyss of Darkness" — verified by Zoink
+First ever sub-4% verified level
+```
+- ✅ `demon_list_update` (98 chars)
+```
+DEMON LIST UPDATE 📊
 
-https://example.com
+Abyss of Darkness enters at #1
+Slaughterhouse moves to #2
+Gelatin drops to #3
 ```
-- ✅ `demon_list_update` (38 chars)
+- ✅ `level_verified` (49 chars)
 ```
-Demon List Top 5 📊
-
-1. 
-2. 
-3. 
-4. 
-5.
+Dolphy — verified "Tartarus" (#3 on Demon List) 🏆
 ```
-- ✅ `level_verified` (76 chars)
+- ✅ `level_beaten` (55 chars)
 ```
-NEW: "Tartarus" has been verified by Dolphy 🏆
-
-Test body text for this item.
-```
-- ✅ `level_beaten` (48 chars)
-```
-Manix648 beats "Bloodbath" (#17 on Demon List) 🎮
+Manix648 becomes the 214th person to beat "Bloodbath" 🎮
 ```
 - ✅ `game_update` (111 chars)
 ```
@@ -225,11 +211,9 @@ Test body text for this item.
 
 Available on Steam, iOS, and Android.
 ```
-- ✅ `level_rated` (65 chars)
+- ✅ `level_rated` (49 chars)
 ```
-"Sonic Wave" by Cyclic just got rated ⭐
-
-Extreme Demon — 10 stars
+New Extreme Demon rated: "Sonic Wave" by Cyclic ⭐
 ```
 - ✅ `daily_level` (80 chars)
 ```
@@ -237,19 +221,19 @@ Today's Daily Level: "Theory of Everything 2" by Partition 📅
 
 Difficulty: Insane
 ```
-- ✅ `weekly_demon` (63 chars)
+- ✅ `weekly_demon` (64 chars)
 ```
-New Weekly Demon is here 👹
+"Bloodbath" is this week's Weekly Demon 👹
 
-"Bloodbath" by Riot — Extreme Demon
+Extreme Demon by Riot
 ```
-- ✅ `mod_update` (93 chars)
+- ✅ `mod_update` (87 chars)
 ```
-Geode 2.1.0 has been released 🔧
+Geode mod loader updated to 2.1.0 🔧
 
 Test body text for this item.
 
-Download: https://example.com
+https://example.com
 ```
 - ✅ `speedrun_wr` (36 chars)
 ```
@@ -295,10 +279,10 @@ WR | All Icons%: 1:24:37 by Doggie 🏆
 
 ## 9. Rate Limiter
 
-- ℹ️ [rocketleague] can_post=True, monthly_posts=1/1500
-- ✅ [rocketleague] within monthly limit (1/1500)
-- ℹ️ [geometrydash] can_post=True, monthly_posts=1/1500
-- ✅ [geometrydash] within monthly limit (1/1500)
+- ℹ️ [rocketleague] can_post=True, monthly_posts=0/1500
+- ✅ [rocketleague] within monthly limit (0/1500)
+- ℹ️ [geometrydash] can_post=True, monthly_posts=0/1500
+- ✅ [geometrydash] within monthly limit (0/1500)
 
 > [PASS] 2/2 checks passed, 0 warnings
 
