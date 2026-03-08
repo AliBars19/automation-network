@@ -120,7 +120,7 @@ def _resize(raw: bytes, source_url: str = "") -> bytes | None:
         img = Image.open(BytesIO(raw)).convert("RGB")
 
         # Reject tiny source images — they'll look awful upscaled
-        if img.width < MIN_SOURCE_W and img.height < MIN_SOURCE_H:
+        if img.width < MIN_SOURCE_W or img.height < MIN_SOURCE_H:
             logger.debug(
                 f"[Media] source too small ({img.width}x{img.height}), skipping: "
                 f"{source_url[:60]}"

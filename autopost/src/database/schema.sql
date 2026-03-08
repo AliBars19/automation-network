@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS sources (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     niche       TEXT    NOT NULL,                   -- 'rocketleague' | 'geometrydash'
     name        TEXT    NOT NULL,                   -- human-readable, matches YAML
-    type        TEXT    NOT NULL,                   -- 'reddit' | 'rss' | 'scraper' | 'twitter' | 'youtube' | 'api'
+    type        TEXT    NOT NULL,                   -- 'rss' | 'scraper' | 'twitter' | 'youtube' | 'api'
     config      TEXT    NOT NULL DEFAULT '{}',      -- JSON: all type-specific fields
     enabled     INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS raw_content (
     body         TEXT    NOT NULL DEFAULT '',
     image_url    TEXT    NOT NULL DEFAULT '',
     author       TEXT    NOT NULL DEFAULT '',
-    score        INTEGER NOT NULL DEFAULT 0,        -- reddit upvotes, yt views, etc.
+    score        INTEGER NOT NULL DEFAULT 0,        -- yt views, engagement, etc.
     metadata     TEXT    NOT NULL DEFAULT '{}',     -- JSON: extra fields per type
     collected_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     UNIQUE(source_id, external_id)

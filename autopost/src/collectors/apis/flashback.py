@@ -102,15 +102,15 @@ async def _fetch_octane_flashbacks(
     month_day = today.strftime("%m-%d")
 
     # Check each year from 2016 to last year
-    for year in range(2016, today.year):
-        date_str = f"{year}-{month_day}"
-        try:
-            datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            continue  # skip Feb 29 on non-leap years
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        for year in range(2016, today.year):
+            date_str = f"{year}-{month_day}"
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                continue  # skip Feb 29 on non-leap years
 
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            try:
                 resp = await client.get(
                     f"{_OCTANE_BASE}/matches",
                     params={
@@ -126,60 +126,60 @@ async def _fetch_octane_flashbacks(
                 if "application/json" not in resp.headers.get("content-type", ""):
                     continue
                 data = resp.json()
-        except Exception:
-            continue
-
-        for match in data.get("matches", []):
-            if not match.get("score"):
+            except Exception:
                 continue
 
-            match_id = match.get("_id", "")
-            blue = match.get("blue", {})
-            orange = match.get("orange", {})
-            blue_name = (blue.get("team") or {}).get("team", {}).get("name", "")
-            org_name = (orange.get("team") or {}).get("team", {}).get("name", "")
-            blue_score = blue.get("score") or 0
-            orange_score = orange.get("score") or 0
+            for match in data.get("matches", []):
+                if not match.get("score"):
+                    continue
 
-            if not blue_name or not org_name:
-                continue
+                match_id = match.get("_id", "")
+                blue = match.get("blue", {})
+                orange = match.get("orange", {})
+                blue_name = (blue.get("team") or {}).get("team", {}).get("name", "")
+                org_name = (orange.get("team") or {}).get("team", {}).get("name", "")
+                blue_score = blue.get("score") or 0
+                orange_score = orange.get("score") or 0
 
-            winner = blue_name if blue_score > orange_score else org_name
-            loser = org_name if blue_score > orange_score else blue_name
-            score_str = f"{max(blue_score, orange_score)}-{min(blue_score, orange_score)}"
-            event = (match.get("event") or {}).get("name", "RLCS")
-            stage = (match.get("stage") or {}).get("name", "")
-            years_ago = today.year - year
+                if not blue_name or not org_name:
+                    continue
 
-            headline = (
-                f"On this day in {year}, {winner} defeated {loser} {score_str} "
-                f"at {event}" + (f" ({stage})" if stage else "") + "."
-            )
+                winner = blue_name if blue_score > orange_score else org_name
+                loser = org_name if blue_score > orange_score else blue_name
+                score_str = f"{max(blue_score, orange_score)}-{min(blue_score, orange_score)}"
+                event = (match.get("event") or {}).get("name", "RLCS")
+                stage = (match.get("stage") or {}).get("name", "")
+                years_ago = today.year - year
 
-            items.append(RawContent(
-                source_id    = source_id,
-                external_id  = f"flashback_octane_{match_id}",
-                niche        = niche,
-                content_type = "flashback",
-                title        = headline,
-                url          = f"https://octane.gg/matches/{match_id}",
-                body         = "",
-                image_url    = "",
-                author       = "",
-                score        = 0,
-                metadata     = {
-                    "headline":  headline,
-                    "details":   f"{event} — {stage}" if stage else event,
-                    "years_ago": str(years_ago),
-                    "year":      str(year),
-                    "event":     event,
-                    "winner":    winner,
-                    "loser":     loser,
-                    "score":     score_str,
-                },
-            ))
+                headline = (
+                    f"On this day in {year}, {winner} defeated {loser} {score_str} "
+                    f"at {event}" + (f" ({stage})" if stage else "") + "."
+                )
 
-            # Only take the most notable match per year
-            break
+                items.append(RawContent(
+                    source_id    = source_id,
+                    external_id  = f"flashback_octane_{match_id}",
+                    niche        = niche,
+                    content_type = "flashback",
+                    title        = headline,
+                    url          = f"https://octane.gg/matches/{match_id}",
+                    body         = "",
+                    image_url    = "",
+                    author       = "",
+                    score        = 0,
+                    metadata     = {
+                        "headline":  headline,
+                        "details":   f"{event} — {stage}" if stage else event,
+                        "years_ago": str(years_ago),
+                        "year":      str(year),
+                        "event":     event,
+                        "winner":    winner,
+                        "loser":     loser,
+                        "score":     score_str,
+                    },
+                ))
+
+                # Only take the most notable match per year
+                break
 
     return items

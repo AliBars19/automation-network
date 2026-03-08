@@ -48,7 +48,10 @@ class ScraperCollector(BaseCollector):
             return []
 
         items = _parse(html, self.url, self.source_id, self.niche)
-        logger.info(f"[Scraper] {self.url[:60]}: {len(items)} headlines extracted")
+        if not items and len(html) > 1000:
+            logger.warning(f"[Scraper] {self.url[:60]}: 0 headlines from {len(html)} bytes — HTML structure may have changed")
+        else:
+            logger.info(f"[Scraper] {self.url[:60]}: {len(items)} headlines extracted")
         return items
 
 

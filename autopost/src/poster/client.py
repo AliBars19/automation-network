@@ -87,7 +87,6 @@ class TwitterClient:
             logger.info(f"[{self.niche}] DRY RUN retweet: {tweet_id}")
             return True
         try:
-            me = self._client.get_me()
             self._client.retweet(tweet_id=tweet_id, user_auth=True)
             logger.success(f"[{self.niche}] retweeted {tweet_id}")
             return True
@@ -97,24 +96,34 @@ class TwitterClient:
 
     # ── Media ──────────────────────────────────────────────────────────────────
 
-    def _upload_media(self, media_path: str) -> list[str] | None:
-        """Upload an image via v1.1 API and return a list with one media_id."""
+    def _upload_media(self, media_path: str, retries: int = 2) -> list[str] | None:
+        """Upload an image via v1.1 API and return a list with one media_id.
+        Retries on transient errors (429, 5xx) with exponential backoff."""
+        import time
+
         path = Path(media_path)
         if not path.exists():
             logger.warning(f"[{self.niche}] media file not found: {media_path}")
             return None
 
-        mime, _ = mimetypes.guess_type(str(path))
-        try:
-            media = self._api.media_upload(
-                filename=str(path),
-                media_category="tweet_image",
-            )
-            logger.debug(f"[{self.niche}] uploaded media {media.media_id_string}")
-            return [media.media_id_string]
-        except tweepy.TweepyException as exc:
-            logger.error(f"[{self.niche}] media upload failed: {exc} — posting without image")
-            return None
+        for attempt in range(retries + 1):
+            try:
+                media = self._api.media_upload(
+                    filename=str(path),
+                    media_category="tweet_image",
+                )
+                logger.debug(f"[{self.niche}] uploaded media {media.media_id_string}")
+                return [media.media_id_string]
+            except tweepy.TweepyException as exc:
+                exc_str = str(exc).lower()
+                is_transient = any(k in exc_str for k in ("429", "500", "502", "503", "timeout"))
+                if is_transient and attempt < retries:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(f"[{self.niche}] media upload attempt {attempt + 1} failed: {exc} — retrying in {wait}s")
+                    time.sleep(wait)
+                    continue
+                logger.error(f"[{self.niche}] media upload failed: {exc} — posting without image")
+                return None
 
     # ── Rate limit info ────────────────────────────────────────────────────────
 

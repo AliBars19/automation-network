@@ -56,6 +56,12 @@ class YouTubeCollector(BaseCollector):
                     "key":   YOUTUBE_API_KEY,
                 },
             )
+            if resp.status_code == 403:
+                body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                reason = body.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                if reason == "quotaExceeded":
+                    logger.error("[YouTube] API QUOTA EXHAUSTED — all YouTube sources will skip until quota resets at midnight PT")
+                    return None
             resp.raise_for_status()
             items = resp.json().get("items", [])
             if not items:

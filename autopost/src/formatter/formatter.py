@@ -180,7 +180,6 @@ def _build_context(content: RawContent) -> dict:
         "rank":        "",
         "achievement": title,
         "mechanic":    "",
-        "subreddit":   "",
         "context":     short_summary,
 
         # ── GD — demon list ────────────────────────────────────────────────────
@@ -226,7 +225,8 @@ def _cap(text: str, limit: int) -> str:
     """Return text truncated at a word boundary to `limit` chars."""
     if len(text) <= limit:
         return text
-    return text[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
+    cut = text[: limit - 1].rsplit(" ", 1)[0].rstrip(",.;:")
+    return cut + "…"
 
 
 def _pick_emoji(niche: str, content_type: str) -> str:
@@ -240,7 +240,6 @@ def _pick_emoji(niche: str, content_type: str) -> str:
         "esports_matchup":     "🎮",
         "roster_change":       "🔄",
         "community_clip":      "🔥",
-        "reddit_highlight":    "👀",
         "rank_milestone":      "🏆",
         "pro_player_content":  "🎬",
         "top1_verified":       "🚨",
