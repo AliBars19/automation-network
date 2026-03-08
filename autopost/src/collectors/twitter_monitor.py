@@ -11,6 +11,8 @@ call client.retweet() instead of client.post_tweet().
 """
 import json
 import re
+from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 
 import httpx
 from loguru import logger
@@ -132,6 +134,17 @@ class TwitterMonitorCollector(BaseCollector):
                 continue
 
             created_at = tweet.get("created_at", "")
+
+            # Only accept tweets from the last 7 days
+            if created_at:
+                try:
+                    tweet_time = parsedate_to_datetime(created_at)
+                    age = datetime.now(timezone.utc) - tweet_time
+                    if age > timedelta(days=7):
+                        continue
+                except Exception:
+                    pass  # unparseable date — let it through
+
             user = tweet.get("user", {})
             screen_name = user.get("screen_name", self.username)
 
