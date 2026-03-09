@@ -325,7 +325,6 @@ def test_formatter(buf: list) -> Section:
         ("season_start",       {"number": "14", "highlight1": "New ranked rewards", "highlight2": "Updated item shop", "highlight3": "Season pass launched"}),
         ("collab_announcement",{"brand": "Spongebob", "details": "Spongebob themed car + decals", "date": "March 5"}),
         ("community_clip",     {"player": "GarrettG", "mechanic": "ceiling shot"}),
-        ("reddit_highlight",   {"subreddit": "RocketLeague"}),
     ]
 
     sample_gd = [
@@ -531,7 +530,7 @@ async def main():
     buf.append(f"# AutoPost Pipeline Test Results")
     buf.append(f"\n**Run at:** {NOW}")
     buf.append(f"\n**Platform:** Python {sys.version.split()[0]} on Windows")
-    buf.append("\n**Note:** Tests requiring credentials (Reddit, X API, YouTube) are skipped — marked as ⏭️\n")
+    buf.append("\n**Note:** Tests requiring credentials (X API, YouTube) are skipped — marked as ⏭️\n")
     buf.append("\n---\n")
 
     sections = []
@@ -568,8 +567,8 @@ async def main():
 
     # ── Skipped tests (need credentials) ──────────────────────────────────────
     buf.append("\n## ⏭️ Skipped (credentials required)\n")
-    buf.append("- **Reddit collector** — needs `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET`")
-    buf.append("- **Twitter monitor** — needs X API keys (`RL_API_KEY` etc.)")
+    buf.append("- **Twitter monitor** — uses syndication scraping (no credentials needed)")
+
     buf.append("- **YouTube collector** — needs `YOUTUBE_API_KEY`")
     buf.append("- **Live posting** — needs X API keys + `DRY_RUN=false`")
 

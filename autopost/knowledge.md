@@ -32,16 +32,6 @@ Both bots use OAuth 1.0a (Consumer Key + Consumer Secret + Access Token + Access
 - GDWire: `@gd_wire` — user ID `2027706428111343618`
 - RLWire: `@rl_wire1` — user ID `2028019551276019712`
 
-### Reddit — No Credentials Needed
-
-Reddit locked down API access in 2023. New app creation is blocked for most accounts.
-
-**Workaround:** The Reddit collector (`src/collectors/reddit.py`) was rewritten to use Reddit's public JSON endpoint:
-```
-https://www.reddit.com/r/{subreddit}/hot.json?limit=25
-```
-This returns the same data as the API (score, title, flair, author, etc.) without any credentials. Uses httpx instead of asyncpraw.
-
 ### YouTube Data API v3
 
 - Only needs an **API key** (not OAuth) — read-only access to public data
@@ -145,8 +135,6 @@ Use `python3` instead of `python`. Or activate the venv first (`source venv/bin/
 - `INSERT OR IGNORE` on `(source_id, external_id)` for exact-match dedup
 
 ### Known limitations
-- `ballchasing.py` collector referenced in `rocketleague.yaml` but not implemented — silently skipped
-- RL Blog RSS feed appears dead (returns 0 entries)
 - GDBrowser daily/weekly level endpoints sometimes return no data (server-side issue)
 - Octane.gg returns nothing during RL esports off-season
-- Twitter monitor (`twitter_monitor.py`) requires Basic tier ($100/month) for read access — currently skipped on Free tier
+- Twitter monitor uses syndication scraping (no API credentials needed for reads)

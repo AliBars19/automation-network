@@ -5,8 +5,6 @@ Content-type is inferred from entry title/tags via keyword matching.
 import asyncio
 import hashlib
 import re
-from html.parser import HTMLParser
-
 import feedparser
 from loguru import logger
 

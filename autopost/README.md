@@ -9,7 +9,7 @@ No AI generation. Pure template-based posting. Runs 24/7 on a DigitalOcean dropl
 ## How it works
 
 ```
-Sources (RSS / Reddit / APIs / YouTube / X)
+Sources (RSS / APIs / YouTube / X)
         ↓  collectors/
 SQLite raw_content  ←  dedup (UNIQUE source_id + external_id)
         ↓  formatter/
@@ -35,8 +35,7 @@ autopost/
 │   ├── collectors/
 │   │   ├── base.py          # RawContent dataclass + BaseCollector ABC
 │   │   ├── rss.py           # feedparser RSS/Atom
-│   │   ├── reddit.py        # asyncpraw subreddit hot posts
-│   │   ├── twitter_monitor.py  # watch official X accounts
+│   │   ├── twitter_monitor.py  # watch official X accounts (syndication scraping)
 │   │   ├── youtube.py       # YouTube Data API v3
 │   │   └── apis/
 │   │       ├── pointercrate.py  # GD demon list
@@ -92,7 +91,6 @@ Required credentials:
 |-----|----------------|
 | `RL_API_KEY` + 3 others | [developer.twitter.com](https://developer.twitter.com/en/portal/dashboard) — create app for @RLWire |
 | `GD_API_KEY` + 3 others | Same portal — create app for @GDWire |
-| `REDDIT_CLIENT_ID/SECRET` | [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) |
 | `YOUTUBE_API_KEY` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) |
 | `DISCORD_WEBHOOK_URL` | Discord server → Integrations → Webhooks (optional) |
 
@@ -331,4 +329,4 @@ bash /root/automation-network/autopost/scripts/backup_db.sh
 
 ## Tech stack
 
-Python 3.12 · Tweepy · asyncpraw · feedparser · httpx · SQLite · APScheduler · Pillow · loguru · systemd
+Python 3.12 · Tweepy · feedparser · httpx · SQLite · APScheduler · Pillow · loguru · systemd

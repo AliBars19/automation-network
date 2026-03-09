@@ -274,7 +274,7 @@ async def main() -> None:
             loop.add_signal_handler(sig, lambda: asyncio.create_task(_shutdown(scheduler)))
     else:
         # Windows doesn't support loop.add_signal_handler; use signal.signal instead
-        def _win_handler(signum, frame):
+        def _win_handler(_signum, _frame):
             asyncio.ensure_future(_shutdown(scheduler))
         signal.signal(signal.SIGINT, _win_handler)
         signal.signal(signal.SIGTERM, _win_handler)

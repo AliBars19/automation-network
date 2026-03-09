@@ -7,7 +7,6 @@ Files are stored in data/media/ and named by a hash of the source URL
 so the same image is never downloaded twice.
 """
 import hashlib
-import mimetypes
 from pathlib import Path
 
 import httpx

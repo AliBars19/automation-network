@@ -5,7 +5,6 @@ In DRY_RUN mode (DRY_RUN=true in .env) no tweets are sent; everything is
 logged instead. This lets you test the full pipeline without spending API
 quota or posting prematurely.
 """
-import mimetypes
 from pathlib import Path
 
 import tweepy
