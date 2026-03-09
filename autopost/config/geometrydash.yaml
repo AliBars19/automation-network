@@ -37,6 +37,16 @@ sources:
     account_id: GDW_ORG
     poll_interval: 900          # Geometry Dash World — level showcases and community news
 
+  - name: "@vipringd"
+    type: twitter
+    account_id: vipringd
+    poll_interval: 600          # Viprin — elder moderator, hosts official community events
+
+  - name: "@zNpesta__"
+    type: twitter
+    account_id: zNpesta__
+    poll_interval: 600          # npesta — iconic player, verification news, very active
+
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)
@@ -77,20 +87,7 @@ sources:
 
   # ── News / coverage sites ────────────────────────────────────────────────────
 
-  - name: Dashword.net
-    type: scraper
-    url: https://dashword.net
-    poll_interval: 1800         # 30 min
-
-  - name: Challenge List
-    type: scraper
-    url: https://challengelist.gd/
-    poll_interval: 900          # 15 min — official GD challenge list (harder than demon list)
-
-  - name: Geometry Dash Forum (News board)
-    type: scraper
-    url: https://gdforum.freeforums.net/board/94/geometry-dash-news
-    poll_interval: 1800
+  # Dashword.net, Challenge List, GD Forum News — removed (very low content yield)
 
   # ── Mod / developer ecosystem ────────────────────────────────────────────────
 
@@ -163,6 +160,16 @@ sources:
     type: youtube
     channel_id: UC3ZhM0fDxU9bqqlwWRMHwuw
     poll_interval: 3600         # GD speedrunner, WR content
+
+  - name: GD YouTube — AeonAir
+    type: youtube
+    channel_id: UCiYX5kJRN4y_jZTEbSEWWAw
+    poll_interval: 1800         # major GD creator, level reactions, 2M+ subs
+
+  - name: GD YouTube — npesta
+    type: youtube
+    channel_id: UC9cqZITak5v02ciYEP1Lj-w
+    poll_interval: 1800         # iconic player, extreme demon content
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
