@@ -34,6 +34,21 @@ sources:
     account_id: RLCS
     poll_interval: 300          # official RLCS competitive series
 
+  - name: "@ShiftRLE"
+    type: twitter
+    account_id: ShiftRLE
+    poll_interval: 300          # #1 RL esports news/intel source — breaks roster moves, results
+
+  - name: "@ApparentlyJxck"
+    type: twitter
+    account_id: ApparentlyJxck
+    poll_interval: 600          # top pro player, frequent competitive tweets
+
+  - name: "@Flakes_RL"
+    type: twitter
+    account_id: Flakes_RL
+    poll_interval: 600          # popular pro/content creator
+
   # ── Esports data APIs ────────────────────────────────────────────────────────
 
   - name: RL Flashbacks
@@ -94,6 +109,16 @@ sources:
     type: youtube
     channel_id: UCeg2dFpnarFPI14hbN_5rKg
     poll_interval: 1800         # popular RL content creator and competitive player
+
+  - name: YouTube — ApparentlyJack
+    type: youtube
+    channel_id: UCRi4YlWuLFCucOx_rk-ddsg
+    poll_interval: 1800         # top pro, competitive analysis
+
+  - name: YouTube — Flakes
+    type: youtube
+    channel_id: UCP9dqlEktObJ-ji-JOdGQhQ
+    poll_interval: 3600         # pro player content, 1v1 specialist
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
