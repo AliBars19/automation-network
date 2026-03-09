@@ -1,6 +1,6 @@
 # AutoPost — RLWire & GDWire
 
-Automated X (Twitter) news bots for **Rocket League** ([@RLWire](https://x.com/RLWire)) and **Geometry Dash** ([@GDWire](https://x.com/GDWire)).
+Automated X (Twitter) news bots for **Rocket League** ([@rl_wire1](https://x.com/rl_wire1)) and **Geometry Dash** ([@gd_wire](https://x.com/gd_wire)).
 
 No AI generation. Pure template-based posting. Runs 24/7 on a DigitalOcean droplet via systemd.
 
@@ -9,16 +9,42 @@ No AI generation. Pure template-based posting. Runs 24/7 on a DigitalOcean dropl
 ## How it works
 
 ```
-Sources (RSS / APIs / YouTube / X)
-        ↓  collectors/
-SQLite raw_content  ←  dedup (UNIQUE source_id + external_id)
-        ↓  formatter/
-tweet_queue  ←  priority 1 (breaking) → 8 (filler)
-        ↓  poster/
-X API  ←  rate limiter (20-min min gap, 1,500/month cap)
-        ↓
-post_log  →  Discord alerts on failure
+Sources (RSS / APIs / YouTube / X syndication scraping)
+        |  collectors/
+SQLite raw_content  <-  dedup (UNIQUE source_id + external_id)
+        |  formatter/
+tweet_queue  <-  priority 1 (breaking) -> 8 (filler)
+        |  poster/
+X API  <-  rate limiter (20-min min gap, 1,500/month cap)
+        |
+post_log  ->  Discord alerts on failure
 ```
+
+---
+
+## Sources (51 active)
+
+### Rocket League (22 sources)
+
+| Type | Sources |
+|------|---------|
+| Twitter | @RocketLeague, @RLEsports, @PsyonixStudios, @RLCS, @ShiftRLE, @ApparentlyJxck, @Flakes_RL |
+| YouTube | RLEsports Official, SunlessKhan, Lethamyr, Musty, Wayton Pilkin, ApparentlyJack, Flakes |
+| Scrapers | BLAST.tv, ONE Esports, Dexerto, The Loadout |
+| RSS | Steam News |
+| APIs | Octane.gg (flashbacks + stats) |
+
+### Geometry Dash (29 sources)
+
+| Type | Sources |
+|------|---------|
+| Twitter | @RobTopGames, @_GeometryDash, @today_gd, @demonlistgd, @geode_sdk, @GDW_ORG, @vipringd, @zNpesta__ |
+| YouTube | EVW, Wulzy, GD Colon, Nexus, ItzBran, Viprin, Juniper, Moldy, Knobbelboy, Doggie, AeonAir, npesta |
+| Scrapers | RobTop Website, AREDL, GDDP, Geode Mods Catalog, Speedrun.com |
+| RSS | Steam News (GD) |
+| APIs | Pointercrate Demon List, GDBrowser, Geode SDK (GitHub) |
+
+Twitter monitoring uses **syndication scraping** — no API read credentials needed.
 
 ---
 
@@ -27,41 +53,54 @@ post_log  →  Discord alerts on failure
 ```
 autopost/
 ├── config/
-│   ├── settings.py          # loads .env, typed config
-│   ├── rocketleague.yaml    # RL sources, schedule, hashtags
-│   └── geometrydash.yaml    # GD sources, schedule, hashtags
+│   ├── settings.py            # loads .env, typed config
+│   ├── rocketleague.yaml      # RL sources, schedule, hashtags
+│   └── geometrydash.yaml      # GD sources, schedule, hashtags
 ├── src/
-│   ├── main.py              # entry point — APScheduler
+│   ├── main.py                # entry point — APScheduler
 │   ├── collectors/
-│   │   ├── base.py          # RawContent dataclass + BaseCollector ABC
-│   │   ├── rss.py           # feedparser RSS/Atom
-│   │   ├── twitter_monitor.py  # watch official X accounts (syndication scraping)
-│   │   ├── youtube.py       # YouTube Data API v3
+│   │   ├── base.py            # RawContent dataclass + BaseCollector ABC
+│   │   ├── rss.py             # feedparser RSS/Atom
+│   │   ├── scraper.py         # BeautifulSoup headline scraper
+│   │   ├── twitter_monitor.py # syndication scraping (no API creds needed)
+│   │   ├── youtube.py         # YouTube Data API v3
 │   │   └── apis/
 │   │       ├── pointercrate.py  # GD demon list
 │   │       ├── gdbrowser.py     # GD daily/weekly/rated levels
-│   │       └── octane.py        # RL esports results (Octane.gg)
+│   │       ├── octane.py        # RL esports results (Octane.gg)
+│   │       ├── flashback.py     # RL "on this day" historical content
+│   │       ├── rl_stats.py      # RL all-time stat milestones
+│   │       └── github.py        # GitHub releases (Geode SDK)
 │   ├── formatter/
-│   │   ├── templates.py     # all tweet templates (both niches)
-│   │   ├── formatter.py     # RawContent → tweet text, 280-char enforcement
-│   │   └── media.py         # download + resize images to 1200×675
+│   │   ├── templates.py       # 77 tweet template variants (both niches)
+│   │   ├── formatter.py       # RawContent -> tweet text, 280-char enforcement
+│   │   └── media.py           # download + resize images to 1200x675
 │   ├── poster/
-│   │   ├── client.py        # Tweepy v2 wrapper + DRY_RUN mode
-│   │   ├── queue.py         # collect_and_queue, post_next, skip_stale
-│   │   └── rate_limiter.py  # 20-min gap, 1500/month cap, jitter
+│   │   ├── client.py          # Tweepy v2 wrapper + DRY_RUN mode
+│   │   ├── queue.py           # collect_and_queue, post_next, skip_stale
+│   │   └── rate_limiter.py    # 20-min gap, 1500/month cap, jitter
 │   ├── database/
-│   │   ├── schema.sql       # sources, raw_content, tweet_queue, post_log
-│   │   └── db.py            # SQLite helpers
+│   │   ├── schema.sql         # sources, raw_content, tweet_queue, post_log
+│   │   └── db.py              # SQLite helpers + similarity dedup
 │   └── monitoring/
-│       └── alerts.py        # Discord webhook alerts
+│       ├── alerts.py          # Discord webhook alerts
+│       └── health_check.py    # daily source integrity check (03:05 UTC)
+├── tests/                     # 100 unit tests (pytest)
+│   ├── test_formatter.py      # _cap, _truncate, emoji, templates
+│   ├── test_collectors.py     # age filter, syndication parsing, classifier
+│   ├── test_media.py          # dimension check, resize, hash paths
+│   ├── test_rate_limiter.py   # posting window, jitter, constants
+│   └── test_db.py             # timestamps, similarity dedup
 ├── scripts/
-│   ├── setup_db.py          # init DB + seed sources from YAML
-│   └── test_collector.py    # pipeline smoke test (no credentials needed)
-├── data/                    # gitignored — autopost.db + media/
-├── logs/                    # gitignored — rotating daily logs
+│   ├── setup_db.py            # init DB + seed sources from YAML
+│   ├── full_pipeline_test.py  # integration test (10 sections)
+│   └── test_collector.py      # quick smoke test
+├── data/                      # gitignored — autopost.db + media/
+├── logs/                      # gitignored — rotating daily logs
 ├── requirements.txt
+├── pytest.ini
 ├── .env.example
-└── autopost.service         # systemd unit file
+└── autopost.service           # systemd unit file
 ```
 
 ---
@@ -85,30 +124,35 @@ cp .env.example .env
 nano .env   # fill in your API keys
 ```
 
-Required credentials:
-
 | Key | Where to get it |
 |-----|----------------|
-| `RL_API_KEY` + 3 others | [developer.twitter.com](https://developer.twitter.com/en/portal/dashboard) — create app for @RLWire |
-| `GD_API_KEY` + 3 others | Same portal — create app for @GDWire |
+| `RL_API_KEY` + 3 others | [developer.twitter.com](https://developer.twitter.com/en/portal/dashboard) — create app for @rl_wire1 |
+| `GD_API_KEY` + 3 others | Same portal — create app for @gd_wire |
 | `YOUTUBE_API_KEY` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) |
-| `DISCORD_WEBHOOK_URL` | Discord server → Integrations → Webhooks (optional) |
+| `DISCORD_WEBHOOK_URL` | Discord server -> Integrations -> Webhooks (optional) |
 
 ### 3. Initialise the database
 
 ```bash
 python scripts/setup_db.py
-# → rocketleague: 22 sources seeded
-# → geometrydash: 26 sources seeded
+# -> rocketleague: 21 sources seeded
+# -> geometrydash: 29 sources seeded
 ```
 
-### 4. Smoke test (no credentials needed)
+### 4. Run tests
+
+```bash
+python -m pytest tests/ -v
+# 100 passed in <1s
+```
+
+### 5. Smoke test
 
 ```bash
 DRY_RUN=true python scripts/test_collector.py
 ```
 
-### 5. Run
+### 6. Run
 
 ```bash
 # Development
@@ -126,207 +170,68 @@ sudo journalctl -u autopost -f
 ## Deployment (DigitalOcean)
 
 ### Requirements
-- Ubuntu 22.04 LTS droplet (1 GB RAM / 1 vCPU is sufficient)
-- Python 3.12 (`sudo apt install python3.12 python3.12-venv`)
-- sqlite3 CLI for backups (`sudo apt install sqlite3`)
+- Ubuntu 22.04+ droplet (1 GB RAM / 1 vCPU is sufficient)
+- Python 3.12+
+- sqlite3 CLI for backups
 - All API credentials from the table above
 
-### First-time server setup
+### Deploy flow
 
 ```bash
-# 1. Create a dedicated system user (no login shell for security)
-sudo useradd -m -s /bin/bash autopost
-
-# 2. Switch to that user for all remaining steps
-sudo -iu autopost
-
-# 3. Clone the repo
-git clone https://github.com/AliBars19/automation-network.git
-cd automation-network/autopost
-
-# 4. Create virtualenv and install deps
-python3.12 -m venv venv
+# On the droplet:
+cd /root/automation-network
+git pull
+cd autopost
 source venv/bin/activate
 pip install -r requirements.txt
-
-# 5. Create and fill in credentials
-cp .env.example .env
-nano .env    # paste all API keys here
-
-# 6. Initialise DB and seed sources
 python scripts/setup_db.py
-
-# 7. Smoke test (no credentials needed)
-DRY_RUN=true python src/main.py    # should start scheduler, Ctrl+C to stop
+sudo systemctl restart autopost
 ```
-
-### Enable systemd service
-
-```bash
-# Back as root / sudo user:
-sudo cp /home/autopost/automation-network/autopost/autopost.service \
-        /etc/systemd/system/autopost.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now autopost
-
-# Verify it started
-sudo systemctl status autopost
-```
-
-### Monitoring
-
-```bash
-# Live log stream
-sudo journalctl -u autopost -f
-
-# Last 100 lines
-sudo journalctl -u autopost -n 100
-
-# Rotating log files (14-day retention)
-tail -f /home/autopost/automation-network/autopost/logs/autopost_$(date +%Y-%m-%d).log
-
-# Check queue depth
-sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
-  "SELECT niche, status, COUNT(*) FROM tweet_queue GROUP BY niche, status;"
-
-# Check today's posts
-sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
-  "SELECT niche, COUNT(*) FROM post_log WHERE posted_at >= date('now') GROUP BY niche;"
-
-# Check source health (recent errors)
-sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
-  "SELECT s.name, COUNT(e.id) errors FROM source_errors e
-   JOIN sources s ON s.id = e.source_id
-   WHERE e.occurred_at >= datetime('now','-1 hour')
-   GROUP BY s.name ORDER BY errors DESC;"
-```
-
-### Backups
-
-```bash
-# Run a backup manually
-bash /home/autopost/automation-network/autopost/scripts/backup_db.sh
-
-# Add to crontab for daily 04:00 UTC backup (as the autopost user)
-crontab -e
-# Add this line:
-# 0 4 * * * /home/autopost/automation-network/autopost/scripts/backup_db.sh >> /home/autopost/automation-network/autopost/logs/backup.log 2>&1
-```
-
-### Updating (after pushing new code)
-
-```bash
-# On the droplet, as the autopost user:
-bash /home/autopost/automation-network/autopost/scripts/deploy.sh
-```
-
-`deploy.sh` does: git pull → pip install → setup_db.py → systemctl restart → status check.
 
 ### Re-enabling a disabled source
 
 Sources are auto-disabled after 10 failures in 1 hour. To re-enable:
 
 ```bash
-sqlite3 /home/autopost/automation-network/autopost/data/autopost.db \
-  "UPDATE sources SET enabled = 1 WHERE name = 'Source Name Here';"
+sqlite3 data/autopost.db "UPDATE sources SET enabled = 1 WHERE name = 'Source Name';"
 sudo systemctl restart autopost
 ```
-
-### Switching from DRY_RUN to live posting
-
-1. Confirm all API keys are in `.env`
-2. Edit `.env`: set `DRY_RUN=false`
-3. `sudo systemctl restart autopost`
-4. Watch logs: `sudo journalctl -u autopost -f`
 
 ---
 
-## Quick Reference (after setup)
+## Monitoring
 
-### Service control
-
-```bash
-# Start / stop / restart
-sudo systemctl start autopost
-sudo systemctl stop autopost
-sudo systemctl restart autopost
-
-# Check if running
-sudo systemctl status autopost
-```
-
-### Monitor
+- **Daily health check** runs at 03:05 UTC — probes every enabled source and sends a Discord report (healthy/degraded/dead)
+- **Discord alerts** fire after 3 consecutive collector failures
+- **Source auto-disable** after 10 errors in 1 hour
+- **Log files** rotate daily with 14-day retention
 
 ```bash
-# Live log stream
+# Live logs
 sudo journalctl -u autopost -f
 
-# Last 100 log lines
-sudo journalctl -u autopost -n 100
-
-# Today's log file
-tail -f /root/automation-network/autopost/logs/autopost_$(date +%Y-%m-%d).log
-```
-
-### Database queries
-
-```bash
-# Queue depth by niche and status
-sqlite3 /root/automation-network/autopost/data/autopost.db \
+# Queue depth
+sqlite3 data/autopost.db \
   "SELECT niche, status, COUNT(*) FROM tweet_queue GROUP BY niche, status;"
 
-# Today's posted tweets
-sqlite3 /root/automation-network/autopost/data/autopost.db \
+# Today's posts
+sqlite3 data/autopost.db \
   "SELECT niche, COUNT(*) FROM post_log WHERE posted_at >= date('now') GROUP BY niche;"
-
-# Recent source errors (last hour)
-sqlite3 /root/automation-network/autopost/data/autopost.db \
-  "SELECT s.name, COUNT(e.id) errors FROM source_errors e
-   JOIN sources s ON s.id = e.source_id
-   WHERE e.occurred_at >= datetime('now','-1 hour')
-   GROUP BY s.name ORDER BY errors DESC;"
-
-# Re-enable a disabled source
-sqlite3 /root/automation-network/autopost/data/autopost.db \
-  "UPDATE sources SET enabled = 1 WHERE name = 'Source Name Here';"
-sudo systemctl restart autopost
-```
-
-### Go live / dry run toggle
-
-```bash
-# Edit .env
-nano /root/automation-network/autopost/.env
-# Set DRY_RUN=false for live, DRY_RUN=true for dry run
-
-# Restart to apply
-sudo systemctl restart autopost
-```
-
-### Update code from GitHub
-
-```bash
-bash /root/automation-network/autopost/scripts/deploy.sh
-```
-
-### Backup database
-
-```bash
-bash /root/automation-network/autopost/scripts/backup_db.sh
 ```
 
 ---
 
 ## Posting schedule
 
-- **Target:** 8–15 tweets/day per account
-- **Window:** UTC 08:00–22:00
+- **Target:** 8-15 tweets/day per account
+- **Window:** UTC 08:00-22:00
 - **Gap:** minimum 20 min between posts (rate limiter enforced)
 - **Cap:** 1,500 tweets/month (X Free tier limit)
 - **Breaking news** (priority 1): bypasses queue delay, posts immediately
+- **Content filtering:** only tweets from the last 7 days are collected
 
 ---
 
 ## Tech stack
 
-Python 3.12 · Tweepy · feedparser · httpx · SQLite · APScheduler · Pillow · loguru · systemd
+Python 3.12 · Tweepy · feedparser · httpx · BeautifulSoup · SQLite · APScheduler · Pillow · loguru · pytest · systemd
