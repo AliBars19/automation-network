@@ -122,7 +122,7 @@ class TestTryFormat:
 
     def test_empty_template(self):
         result = _try_format("", {})
-        assert result == ""
+        assert result is None  # empty results are rejected
 
 
 # ── _build_context() ──────────────────────────────────────────────────────────
@@ -154,9 +154,9 @@ class TestBuildContext:
         ctx = _build_context(self._make_content(title="Rocket League v2.40 Patch Notes"))
         assert ctx["version"] == "v2.40"
 
-    def test_version_fallback_when_missing(self):
+    def test_version_absent_when_not_in_title(self):
         ctx = _build_context(self._make_content(title="Big Update Coming"))
-        assert ctx["version"] == "latest"
+        assert "version" not in ctx  # no version = templates requiring it are skipped
 
     def test_author_fallback(self):
         ctx = _build_context(self._make_content(author=""))

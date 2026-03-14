@@ -182,17 +182,20 @@ class TestScraperClassify:
             "rocketleague",
         ) == "esports_result"
 
-    def test_rl_event_announcement(self):
-        assert _classify("RLCS Spring Major kicks off this weekend", "rocketleague") == "event_announcement"
+    def test_rl_event_announcement_now_breaking(self):
+        # Broad RLCS mentions → breaking_news (scraped articles lack structured data)
+        assert _classify("RLCS Spring Major kicks off this weekend", "rocketleague") == "breaking_news"
 
     def test_rl_roster_change(self):
         assert _classify("jstn joins NRG after leaving Cloud9", "rocketleague") == "roster_change"
 
-    def test_rl_season_start(self):
-        assert _classify("New season starts today with ranked rewards", "rocketleague") == "season_start"
+    def test_rl_season_start_now_breaking(self):
+        # Season mentions → breaking_news (scraper can't provide {number} etc.)
+        assert _classify("New season starts today with ranked rewards", "rocketleague") == "breaking_news"
 
-    def test_rl_collab(self):
-        assert _classify("Rocket League x Hot Wheels collaboration announced", "rocketleague") == "collab_announcement"
+    def test_rl_collab_now_breaking(self):
+        # Collab mentions → breaking_news (scraper can't provide structured collab data)
+        assert _classify("Rocket League x Hot Wheels collaboration announced", "rocketleague") == "breaking_news"
 
     def test_rl_item_shop(self):
         assert _classify("Item shop today: new painted decals available", "rocketleague") == "item_shop"

@@ -68,7 +68,9 @@ def format_tweet(content: RawContent) -> str | None:
 
 def _try_format(template: str, ctx: dict) -> str | None:
     """
-    Format template with ctx. Returns None if any placeholder is left unfilled.
+    Format template with ctx.
+    Rejects if any placeholder is left unfilled or if the result has
+    signs of empty-filled fields (double spaces, degenerate separators).
     """
     try:
         result = template.format_map(_SafeFormatDict(ctx))
@@ -76,7 +78,13 @@ def _try_format(template: str, ctx: dict) -> str | None:
         return None
     if _PLACEHOLDER_RE.search(result):
         return None  # required fields missing for this variant
-    return result.strip()
+    result = result.strip()
+    if not result:
+        return None
+    # Reject results showing signs of empty-filled placeholders
+    if "  " in result:
+        return None
+    return result
 
 
 def _fallback(content: RawContent) -> str:
@@ -93,18 +101,18 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _build_context(content: RawContent) -> dict:
-    """Build a rich context dict from RawContent, with safe defaults for every
-    template variable. API collectors populate content.metadata with extra fields
-    that override the defaults here."""
+    """Build a context dict from RawContent.
+
+    Only fields derivable from the content itself get defaults here.
+    Structured fields (scores, positions, teams, version numbers, etc.) are
+    intentionally omitted so that templates requiring them fail the
+    placeholder check and get skipped in favour of simpler variants.
+    Collector metadata overrides everything."""
 
     title   = content.title.strip()
     url     = content.url.strip()
     body    = content.body.strip()
     author  = content.author.strip() or "Unknown"
-
-    # Version extraction (used by patch_notes / game_update templates)
-    version_match = re.search(r"v?\d+\.\d+[\w.]*", title)
-    version = version_match.group(0) if version_match else "latest"
 
     # Bullet points from body lines (used by HYPEX/ShiinaBR-style templates)
     lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
@@ -121,8 +129,11 @@ def _build_context(content: RawContent) -> dict:
     # Emoji that fits the niche + content type
     emoji = _pick_emoji(content.niche, content.content_type)
 
+    # Version extraction — only set if actually found in the title
+    version_match = re.search(r"v?\d+\.\d+[\w.]*", title)
+
     base: dict = {
-        # ── Universal ──────────────────────────────────────────────────────────
+        # ── Universal (always derivable from content fields) ──────────────────
         "title":       title,
         "url":         url,
         "headline":    title,
@@ -132,91 +143,56 @@ def _build_context(content: RawContent) -> dict:
         "author":      author,
         "emoji":       emoji,
 
-        # ── Patch / update ─────────────────────────────────────────────────────
-        "version":    version,
+        # ── Bullet points (derived from body) ─────────────────────────────────
         "bullet1":    bullet1,
         "bullet2":    bullet2,
         "bullet3":    bullet3,
 
-        # ── Esports ────────────────────────────────────────────────────────────
+        # ── Esports (title-derived only) ──────────────────────────────────────
         "event":       title,
         "event_short": title[:30],
-        "stage":       "",
-        "team1":       "",
-        "team2":       "",
-        "winner":      "",
-        "loser":       "",
-        "score":       "",
-        "score1":      "",
-        "score2":      "",
-        "deficit":     "",
-        "teams":       "",
-        "prize_pool":  "",
-        "time":        "",
-        "day":         "",
 
-        # ── Season / highlights ────────────────────────────────────────────────
-        "number":      "",
+        # ── Season / highlights (body-derived) ────────────────────────────────
         "highlights":  summary,
         "highlight1":  bullet1,
         "highlight2":  bullet2,
         "highlight3":  bullet3,
 
-        # ── Roster / player ────────────────────────────────────────────────────
+        # ── Player / creator (author-derived) ─────────────────────────────────
         "player":      author,
         "creator":     author,
-        "old_team":    "",
-        "team":        "",
-        "season":      "",
-        "roster_list": "",
-        "source":      "",
 
-        # ── Collab / item shop ─────────────────────────────────────────────────
+        # ── Collab / item shop (title/summary-derived) ────────────────────────
         "brand":       title,
         "items":       summary,
-        "date":        "",
 
         # ── Community ──────────────────────────────────────────────────────────
-        "rank":        "",
         "achievement": title,
-        "mechanic":    "",
         "context":     short_summary,
 
-        # ── GD — demon list ────────────────────────────────────────────────────
+        # ── GD (title/summary-derived) ────────────────────────────────────────
         "level":        title,
         "level_name":   title,
-        "position":     "",
-        "old_position": "",
         "changes":      summary,
-        "top1":         "",
-        "top2":         "",
-        "top3":         "",
-        "top4":         "",
-        "top5":         "",
+        "mod_name":     title,
 
-        # ── GD — level metadata ────────────────────────────────────────────────
-        "difficulty":     "",
-        "stars":          "",
-        "victor_number":  "",
-
-        # ── GD — speedrun ──────────────────────────────────────────────────────
-        "category":   "",
-        "prev_time":  "",
-
-        # ── GD — mod ──────────────────────────────────────────────────────────
-        "mod_name":   title,
-
-        # ── Flashback / on this day ──────────────────────────────────────────
-        "years_ago": "",
-        "year":      "",
-
-        # ── Stat milestone ───────────────────────────────────────────────────
-        "stat":      "",
-        "value":     "",
+        # NOTE: All structured fields (version, stage, team1, team2, winner,
+        # loser, score*, number, teams, prize_pool, position, difficulty, stars,
+        # rank, category, years_ago, etc.) are intentionally NOT defaulted.
+        # They must come from collector metadata — if absent, templates using
+        # them will be skipped via the placeholder check in _try_format().
     }
 
-    # metadata from the collector overrides base defaults (enables rich API data)
-    base.update({k: str(v) for k, v in content.metadata.items() if v is not None})
+    # Only add version if we actually found one in the title
+    if version_match:
+        base["version"] = version_match.group(0)
+
+    # Collector metadata overrides base defaults — skip empty/whitespace values
+    base.update({
+        k: str(v)
+        for k, v in content.metadata.items()
+        if v is not None and str(v).strip()
+    })
 
     return base
 

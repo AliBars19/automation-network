@@ -11,6 +11,7 @@ collector).  The URL's MD5 hash is used as the stable external_id so the
 dedup layer correctly ignores re-visits of the same article.
 """
 import hashlib
+import re
 from urllib.parse import urlparse
 
 import httpx
@@ -148,52 +149,55 @@ def _parse(html: str, base_url: str, source_id: int, niche: str) -> list[RawCont
 # ── Content-type classifier ───────────────────────────────────────────────────
 
 def _classify(text: str, niche: str) -> str:
+    """Classify scraped headline into a content type.
+
+    Conservative: only classify when the headline clearly indicates the type.
+    Scraped articles lack structured metadata, so templates for misclassified
+    types would produce broken tweets.  When in doubt, fall through to
+    breaking_news (simple title + url template).
+    """
     lower = text.lower()
 
     if niche == "rocketleague":
-        if any(k in lower for k in ("patch", "update", "v2.", "hotfix", "fix")):
+        # Patch notes — require explicit patch/hotfix language or version number
+        if any(k in lower for k in ("patch notes", "hotfix")):
             return "patch_notes"
-        # esports_result: only if title looks like an actual result (has score-like words)
+        if "update" in lower and re.search(r"v?\d+\.\d+", lower):
+            return "patch_notes"
+        # Esports result — only if title describes an actual match outcome
         if any(k in lower for k in ("grand final", "bracket", "qualifier")):
             if any(w in lower for w in ("wins", "defeat", "beats", "sweep",
                                          "eliminat", "advance", "champion")):
                 return "esports_result"
-        # esports event coverage (articles, previews, recaps)
-        if any(k in lower for k in ("rlcs", "major", "championship",
-                                     "tournament", "regional")):
-            return "event_announcement"
-        if any(k in lower for k in ("signs", "roster", "trade", "transfer",
-                                     "leaves", "joins", "released")):
+        # Roster changes — require specific transfer verbs
+        if any(k in lower for k in ("signs ", "roster change", "joins ",
+                                     "released from", "parts ways")):
             return "roster_change"
-        if any(k in lower for k in ("new season", "season start", "season launch")):
-            return "season_start"
-        if any(k in lower for k in ("collab", "collaboration", " x ", "crossover",
-                                     "partnership")):
-            return "collab_announcement"
-        if any(k in lower for k in ("item shop", "shop update", "black market",
-                                     "painted", "decal")):
+        # Item shop — very specific keywords only
+        if "item shop" in lower:
             return "item_shop"
 
     else:  # geometrydash
         if any(k in lower for k in ("top 1", "new #1", "new top 1", "hardest level")):
             return "top1_verified"
-        if any(k in lower for k in ("update", "geometry dash 2", "robtop", "2.2",
-                                     "patch", "hotfix")):
+        # Game update — require GD-specific context
+        if any(k in lower for k in ("2.2", "2.3")):
+            if any(k in lower for k in ("update", "patch", "released", "out now")):
+                return "game_update"
+        if "robtop" in lower and any(k in lower for k in ("update", "release", "announce")):
             return "game_update"
-        if any(k in lower for k in ("verified", "verification", "verifier",
-                                     "two-player", "2-player", "2p", "collab")):
+        if any(k in lower for k in ("verified", "verification")):
             return "level_verified"
-        if any(k in lower for k in ("beaten", "new victor", "first victor",
-                                     "completes", "completed")):
+        if any(k in lower for k in ("beaten", "new victor", "first victor")):
             return "level_beaten"
-        if any(k in lower for k in ("demon list", "demonlist", "demon", "extreme")):
+        if any(k in lower for k in ("demon list", "demonlist")):
             return "demon_list_update"
-        if any(k in lower for k in ("rated", "star rate")):
+        if "rated" in lower and any(k in lower for k in ("level", "star")):
             return "level_rated"
-        if any(k in lower for k in ("geode", "mod", "plugin", "modding")):
+        if "geode" in lower and any(k in lower for k in ("update", "release", "version")):
             return "mod_update"
-        if any(k in lower for k in ("speedrun", "world record", "wr", "any%")):
+        if any(k in lower for k in ("speedrun", "world record")):
             return "speedrun_wr"
 
-    # No match — use generic breaking_news so the item still gets queued
+    # Default — simple title + url template, always safe for scraped content
     return "breaking_news"
