@@ -115,8 +115,7 @@ class YouTubeCollector(BaseCollector):
             )
             video_url = f"https://youtu.be/{video_id}"
 
-            # Choose content_type based on niche
-            content_type = "youtube_video" if self.niche == "geometrydash" else "pro_player_content"
+            content_type = "youtube_video"
 
             results.append(RawContent(
                 source_id    = self.source_id,

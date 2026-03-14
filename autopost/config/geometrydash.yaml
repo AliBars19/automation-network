@@ -67,15 +67,17 @@ sources:
     base_url: https://pointercrate.com/api/v2
     poll_interval: 600          # 10 min — the primary demon list
 
-  - name: AREDL (All Rated Extreme Demons)
-    type: scraper
-    url: https://aredl.net/
-    poll_interval: 900          # 15 min — separate community extreme demon list
+  # AREDL — disabled: SPA (React), no server-rendered HTML for scraping
+  # - name: AREDL (All Rated Extreme Demons)
+  #   type: scraper
+  #   url: https://aredl.net/
+  #   poll_interval: 900
 
-  - name: GDDP (GD Demon Progression)
-    type: scraper
-    url: https://gddp.pro/
-    poll_interval: 1800         # 30 min — progression lists and tracker
+  # GDDP — disabled: SPA (Next.js), no server-rendered HTML for scraping
+  # - name: GDDP (GD Demon Progression)
+  #   type: scraper
+  #   url: https://gddp.pro/
+  #   poll_interval: 1800
 
   # ── Level data API ───────────────────────────────────────────────────────────
 
@@ -102,12 +104,11 @@ sources:
     repo: geode-sdk/geode
     poll_interval: 3600         # 60 min
 
-  # ── Speedrunning ─────────────────────────────────────────────────────────────
-
-  - name: Speedrun.com — GD
-    type: scraper
-    url: https://www.speedrun.com/gmd
-    poll_interval: 3600         # 1 hr — WR updates
+  # Speedrun.com — disabled: Cloudflare challenge blocks server-side requests
+  # - name: Speedrun.com — GD
+  #   type: scraper
+  #   url: https://www.speedrun.com/gmd
+  #   poll_interval: 3600
 
   # ── YouTube channels ─────────────────────────────────────────────────────────
 

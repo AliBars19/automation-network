@@ -120,6 +120,28 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{headline}",
     ],
 
+    # ── YouTube video (pro players & creators) ─────────────────────────────────
+    "youtube_video": [
+        "New video from {creator}: \"{title}\"\n\n{url}",
+        "{creator} just uploaded: \"{title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{title}\"\n\n{url}",
+        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
+    ],
+
+    # ── Pro player content (YouTube — legacy content_type) ────────────────────
+    "pro_player_content": [
+        "New video from {creator}: \"{title}\"\n\n{url}",
+        "{creator} just uploaded: \"{title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{title}\"\n\n{url}",
+        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
+    ],
+
+    # ── Breaking / miscellaneous news ─────────────────────────────────────────
+    "breaking_news": [
+        "{title}\n\n{url}",
+        "{title}\n\n{url}",
+    ],
+
     # ── Official account tweets (retweet signal) ──────────────────────────────
     "official_tweet": [None],
 }
@@ -184,12 +206,14 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "daily_level": [
         "Today's Daily Level: \"{level_name}\" by {creator}. {difficulty}.",
         "\"{level_name}\" by {creator} is today's Daily Level. {difficulty}.",
+        "Daily Level: \"{level_name}\" by {creator} ({difficulty}, {stars} stars).",
     ],
 
     # ── Weekly demon ───────────────────────────────────────────────────────────
     "weekly_demon": [
         "This week's Weekly Demon: \"{level_name}\" by {creator}. {difficulty}.",
         "\"{level_name}\" by {creator} is this week's Weekly Demon. {difficulty}.",
+        "Weekly Demon: \"{level_name}\" by {creator} ({difficulty}, {stars} stars).",
     ],
 
     # ── Mod / Geode update ────────────────────────────────────────────────────
@@ -203,6 +227,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "youtube_video": [
         "New video from {creator}: \"{title}\"\n\n{url}",
         "{creator} just uploaded: \"{title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{title}\"\n\n{url}",
+        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
     ],
 
     # ── Creator spotlight ─────────────────────────────────────────────────────
