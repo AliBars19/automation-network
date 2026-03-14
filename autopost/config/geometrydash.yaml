@@ -47,6 +47,28 @@ sources:
     account_id: zNpesta__
     poll_interval: 600          # npesta — iconic player, verification news, very active
 
+  # ── Community news / creator X accounts ────────────────────────────────────
+
+  - name: "@DashwordGD"
+    type: twitter
+    account_id: DashwordGD
+    poll_interval: 600          # #1 GD community news outlet — demon completions, updates, events
+
+  - name: "@DemonListNews"
+    type: twitter
+    account_id: DemonListNews
+    poll_interval: 600          # automated demon completion announcements
+
+  - name: "@demonlistorg"
+    type: twitter
+    account_id: demonlistorg
+    poll_interval: 600          # Global Demonlist official — ranking changes, new #1 demons
+
+  - name: "@TechnicalJL"
+    type: twitter
+    account_id: TechnicalJL
+    poll_interval: 600          # top extreme demon player, just beat Acheron (March 2026)
+
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)
@@ -171,6 +193,16 @@ sources:
     type: youtube
     channel_id: UC9cqZITak5v02ciYEP1Lj-w
     poll_interval: 1800         # iconic player, extreme demon content
+
+  - name: GD YouTube — Technical
+    type: youtube
+    channel_id: UCP5wwq4_TAqJZHaU7_oLj4w
+    poll_interval: 1800         # top extreme demon player, very active March 2026
+
+  - name: GD YouTube — Neiro
+    type: youtube
+    channel_id: UCCj0f5y47A94_dahjTbem-A
+    poll_interval: 1800         # 598K subs, 8 vids/week, extreme demon content
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:

@@ -49,6 +49,28 @@ sources:
     account_id: Flakes_RL
     poll_interval: 600          # popular pro/content creator
 
+  # ── Community / creator X accounts ─────────────────────────────────────────
+
+  - name: "@Johnnyboi_i"
+    type: twitter
+    account_id: Johnnyboi_i
+    poll_interval: 600          # caster, 1v1 tournament organizer, 100K followers
+
+  - name: "@SquishyMuffinz"
+    type: twitter
+    account_id: SquishyMuffinz
+    poll_interval: 600          # pro/creator, 5x Major LAN Champion, 248K followers
+
+  - name: "@GarrettG"
+    type: twitter
+    account_id: GarrettG
+    poll_interval: 900          # retired pro, NRG creator, 180K followers
+
+  - name: "@RL_Status"
+    type: twitter
+    account_id: RL_Status
+    poll_interval: 600          # server status, maintenance, bug reports — 129K followers
+
   # ── Esports data APIs ────────────────────────────────────────────────────────
 
   - name: RL Flashbacks
@@ -60,6 +82,13 @@ sources:
     type: api
     collector: rl_stats
     poll_interval: 604800       # once per week — all-time stat leaderboard tweets
+
+  # ── News / coverage RSS ─────────────────────────────────────────────────────
+
+  - name: Shift RLE Articles
+    type: rss
+    url: https://shiftrle.gg/feed/
+    poll_interval: 900          # 15 min — full roster move/RLCS articles (supplements @ShiftRLE)
 
   # ── News / coverage sites ────────────────────────────────────────────────────
 
@@ -119,6 +148,21 @@ sources:
     type: youtube
     channel_id: UCP9dqlEktObJ-ji-JOdGQhQ
     poll_interval: 3600         # pro player content, 1v1 specialist
+
+  - name: YouTube — JohnnyBoi_i
+    type: youtube
+    channel_id: UCldqb1GljWZzaRVtYXfvlAg
+    poll_interval: 1800         # 1v1 showmatches, tournament coverage, 5-6 vids/week
+
+  - name: YouTube — SquishyMuffinz
+    type: youtube
+    channel_id: UC1JPEwMqLaI96qRUKNp3_ow
+    poll_interval: 1800         # gameplay challenges, tutorials, 1.4M subs
+
+  - name: YouTube — ArsenalRL
+    type: youtube
+    channel_id: UCuRS9KcqyOamnYjd6zOKiFQ
+    poll_interval: 1800         # daily streams, Top 100 SSL ranked content
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
