@@ -69,6 +69,33 @@ sources:
     account_id: TechnicalJL
     poll_interval: 600          # top extreme demon player, just beat Acheron (March 2026)
 
+  # ── Top players (live completion announcements) ────────────────────────────
+
+  - name: "@gdzoink"
+    type: twitter
+    account_id: gdzoink
+    poll_interval: 300          # Zoink — #1 Pointercrate, verified Thinking Space II, BLOOP
+
+  - name: "@GmdTrick"
+    type: twitter
+    account_id: GmdTrick
+    poll_interval: 300          # trick — former #1 Pointercrate, first victor of KOCMOC/Tidal Wave
+
+  - name: "@DiamondGD_"
+    type: twitter
+    account_id: DiamondGD_
+    poll_interval: 300          # Diamond — first victor of VSC, top 5 player
+
+  - name: "@DasherDoggie"
+    type: twitter
+    account_id: DasherDoggie
+    poll_interval: 300          # Doggie — top extreme demon player
+
+  - name: "@Netrimer"
+    type: twitter
+    account_id: Netrimer
+    poll_interval: 300          # Netermind — #2 Pointercrate stats, top completions
+
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)
