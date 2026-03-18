@@ -37,6 +37,10 @@ GD_CREDENTIALS = {
 # ── YouTube ────────────────────────────────────────────────────────────────────
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+# ── twscrape (Twitter monitoring via GraphQL) ─────────────────────────────────
+# Pipe-separated cookie strings: "auth_token=abc; ct0=def|auth_token=ghi; ct0=jkl"
+TWSCRAPE_COOKIES = os.getenv("TWSCRAPE_COOKIES")
+
 # ── Discord alerts ─────────────────────────────────────────────────────────────
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
