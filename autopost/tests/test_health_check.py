@@ -24,37 +24,29 @@ from src.monitoring.health_check import (
 # ── _probe_twitter() ──────────────────────────────────────────────────────────
 
 class TestProbeTwitter:
-    # NOTE: get_api and resolve_user_id are imported locally inside _probe_twitter,
-    # so they must be patched on the twscrape_pool module, not on health_check.
+    # NOTE: probe_twitter_api is imported locally inside _probe_twitter,
+    # so it must be patched on the twscrape_pool module.
 
     @pytest.mark.asyncio
-    async def test_degraded_when_api_is_none(self):
-        with patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=None):
+    async def test_degraded_when_api_key_not_set(self):
+        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(False, "TWITTERAPI_IO_KEY not set")):
             status, detail = await _probe_twitter({"account_id": "RocketLeague"}, MagicMock())
         assert status == "degraded"
-        assert "TWSCRAPE_COOKIES" in detail
+        assert "not set" in detail
 
     @pytest.mark.asyncio
-    async def test_degraded_when_user_id_unresolvable(self):
-        mock_api = MagicMock()
-        with (
-            patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twscrape_pool.resolve_user_id", new_callable=AsyncMock, return_value=None),
-        ):
+    async def test_degraded_when_api_returns_error(self):
+        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(False, "HTTP 401")):
             status, detail = await _probe_twitter({"account_id": "GhostUser"}, MagicMock())
         assert status == "degraded"
-        assert "GhostUser" in detail
+        assert "401" in detail
 
     @pytest.mark.asyncio
-    async def test_healthy_when_user_resolves(self):
-        mock_api = MagicMock()
-        with (
-            patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twscrape_pool.resolve_user_id", new_callable=AsyncMock, return_value=99999),
-        ):
+    async def test_healthy_when_api_succeeds(self):
+        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(True, "5 tweets returned")):
             status, detail = await _probe_twitter({"account_id": "RocketLeague"}, MagicMock())
         assert status == "healthy"
-        assert "99999" in detail
+        assert "5 tweets" in detail
 
 
 # ── _probe_youtube() ──────────────────────────────────────────────────────────

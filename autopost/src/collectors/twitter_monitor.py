@@ -1,25 +1,26 @@
 """
-Twitter/X monitor — watches accounts via twscrape (Twitter GraphQL API).
+Twitter/X monitor — reads user timelines via TwitterAPI.io REST API.
 
-Uses cookie-based authentication with account pooling for rate-limit rotation.
-Set TWSCRAPE_COOKIES in .env with pipe-separated cookie strings:
-    TWSCRAPE_COOKIES=auth_token=abc; ct0=def|auth_token=ghi; ct0=jkl
+Uses a simple API key for authentication. No cookies, no scraping,
+no account pool needed. Set TWITTERAPI_IO_KEY in .env.
 
-Extract cookies from browser DevTools → Application → Cookies → x.com
-(copy auth_token and ct0 values). Cookies expire periodically — refresh
-by updating the env var and restarting the service.
+Pricing: ~$0.15 per 1,000 API calls (pay-as-you-go).
+Sign up at https://twitterapi.io (free credits on signup, no CC required).
 
 Retweet signals are stored with metadata["retweet_id"] so the poster can
 call client.retweet() instead of client.post_tweet().
 """
 import re
 from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 
+import httpx
 from loguru import logger
-from twscrape import gather
 
 from src.collectors.base import BaseCollector, RawContent
-from src.collectors.twscrape_pool import get_api, resolve_user_id
+from config.settings import TWITTERAPI_IO_KEY
+
+_ENDPOINT = "https://api.twitterapi.io/twitter/user/last_tweets"
 
 # content_type per niche for monitored account tweets
 _CONTENT_TYPE: dict[str, str] = {
@@ -30,7 +31,8 @@ _CONTENT_TYPE: dict[str, str] = {
 
 class TwitterMonitorCollector(BaseCollector):
     """
-    Fetches recent original tweets from one monitored X account via twscrape.
+    Fetches recent original tweets from one monitored X account via
+    TwitterAPI.io REST API.
 
     config keys (from YAML):
         account_id    (str)  Twitter username without @  e.g. "RocketLeague"
@@ -43,37 +45,48 @@ class TwitterMonitorCollector(BaseCollector):
         self.username = config["account_id"]
 
     async def collect(self) -> list[RawContent]:
-        api = await get_api()
-        if api is None:
-            return []
-
-        user_id = await resolve_user_id(api, self.username)
-        if user_id is None:
+        if not TWITTERAPI_IO_KEY:
+            logger.error(
+                "[TwitterMonitor] TWITTERAPI_IO_KEY not set — Twitter monitoring disabled"
+            )
             return []
 
         try:
-            tweets = await gather(api.user_tweets(user_id, limit=20))
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    _ENDPOINT,
+                    headers={"X-API-Key": TWITTERAPI_IO_KEY},
+                    params={"userName": self.username},
+                )
+                if resp.status_code == 429:
+                    logger.debug(
+                        f"[TwitterMonitor] @{self.username} rate-limited (429)"
+                    )
+                    return []
+                resp.raise_for_status()
+                data = resp.json()
         except Exception as exc:
             logger.error(f"[TwitterMonitor] @{self.username} fetch failed: {exc}")
             return []
 
+        tweets = data.get("tweets", [])
         content_type = _CONTENT_TYPE.get(self.niche, "official_tweet")
         items: list[RawContent] = []
 
         for tweet in tweets:
             # Skip retweets
-            if tweet.retweetedTweet is not None:
+            if tweet.get("retweeted_tweet"):
                 continue
 
-            # Skip replies (detected by twscrape field)
-            if tweet.inReplyToUser is not None:
+            # Skip replies
+            if tweet.get("isReply"):
                 continue
 
-            tweet_id = str(tweet.id)
-            if not tweet_id or tweet_id == "0":
+            tweet_id = tweet.get("id", "")
+            if not tweet_id:
                 continue
 
-            text = tweet.rawContent or ""
+            text = tweet.get("text", "")
             if not text:
                 continue
 
@@ -82,46 +95,38 @@ class TwitterMonitorCollector(BaseCollector):
                 continue
 
             # Only accept tweets from the last 7 days
-            if tweet.date:
+            created_at = tweet.get("createdAt", "")
+            if created_at:
                 try:
-                    tweet_time = tweet.date
-                    if tweet_time.tzinfo is None:
-                        tweet_time = tweet_time.replace(tzinfo=timezone.utc)
-                    age = datetime.now(timezone.utc) - tweet_time
-                    if age > timedelta(days=7):
+                    tweet_time = parsedate_to_datetime(created_at)
+                    if datetime.now(timezone.utc) - tweet_time > timedelta(days=7):
                         continue
                 except Exception:
                     pass  # unparseable date — let it through
 
-            screen_name = tweet.user.username if tweet.user else self.username
-            tweet_url = tweet.url or f"https://x.com/{screen_name}/status/{tweet_id}"
+            author = tweet.get("author", {})
+            screen_name = author.get("userName", self.username)
+            tweet_url = tweet.get("url", f"https://x.com/{screen_name}/status/{tweet_id}")
 
-            # Format created_at for metadata
-            created_at = ""
-            if tweet.date:
-                try:
-                    created_at = tweet.date.strftime("%a %b %d %H:%M:%S %z %Y")
-                except Exception:
-                    created_at = str(tweet.date)
-
-            # Extract first image/video thumbnail
+            # Extract first image URL from extended entities or entities
             image_url = ""
             try:
-                if tweet.media.photos:
-                    image_url = tweet.media.photos[0].url
-                elif tweet.media.videos:
-                    image_url = tweet.media.videos[0].thumbnailUrl
-            except (AttributeError, IndexError):
+                media_list = (
+                    tweet.get("extendedEntities", {}).get("media", [])
+                    or tweet.get("entities", {}).get("media", [])
+                )
+                if media_list:
+                    image_url = media_list[0].get("media_url_https", "")
+            except (AttributeError, IndexError, TypeError):
                 pass
 
-            # Expand t.co links using tweet entity data
+            # Expand t.co links using URL entities
             clean_text = text
-            try:
-                for link in (tweet.links or []):
-                    if link.tcourl and link.url:
-                        clean_text = clean_text.replace(link.tcourl, link.url)
-            except (AttributeError, TypeError):
-                pass
+            for url_entity in tweet.get("entities", {}).get("urls", []):
+                short = url_entity.get("url", "")
+                expanded = url_entity.get("expanded_url", "")
+                if short and expanded:
+                    clean_text = clean_text.replace(short, expanded)
 
             # Remove trailing t.co media links
             clean_text = re.sub(r"\s*https://t\.co/\w+\s*$", "", clean_text).strip()

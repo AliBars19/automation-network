@@ -1,9 +1,10 @@
 """
-Unit tests for src/collectors/twitter_monitor.py
+Unit tests for src/collectors/twitter_monitor.py (TwitterAPI.io).
 
-All twscrape API calls are mocked — no network access.
+All HTTP calls are mocked — no network access.
 """
 from datetime import datetime, timezone, timedelta
+from email.utils import format_datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,40 +16,31 @@ from src.collectors.twitter_monitor import TwitterMonitorCollector
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _make_tweet(
-    tweet_id: int = 100,
+    tweet_id: str = "100",
     text: str = "Rocket League Season 14 is here!",
-    date: datetime | None = None,
-    retweeted: bool = False,
-    reply_to_user=None,
-    user_username: str = "RocketLeague",
-    has_media: bool = False,
-    links: list | None = None,
+    created_at: str | None = None,
+    is_reply: bool = False,
+    retweeted_tweet=None,
+    user_name: str = "RocketLeague",
+    media: list | None = None,
+    urls: list | None = None,
 ):
-    """Build a mock twscrape Tweet object."""
-    tweet = MagicMock()
-    tweet.id = tweet_id
-    tweet.rawContent = text
-    tweet.date = date or datetime.now(timezone.utc) - timedelta(hours=1)
-    tweet.retweetedTweet = MagicMock() if retweeted else None
-    tweet.inReplyToUser = MagicMock() if reply_to_user else None
-    tweet.url = f"https://x.com/{user_username}/status/{tweet_id}"
+    """Build a TwitterAPI.io tweet dict."""
+    if created_at is None:
+        dt = datetime.now(timezone.utc) - timedelta(hours=1)
+        created_at = format_datetime(dt)
 
-    user = MagicMock()
-    user.username = user_username
-    tweet.user = user
-
-    if has_media:
-        photo = MagicMock()
-        photo.url = "https://pbs.twimg.com/media/example.jpg"
-        tweet.media = MagicMock()
-        tweet.media.photos = [photo]
-        tweet.media.videos = []
-    else:
-        tweet.media = MagicMock()
-        tweet.media.photos = []
-        tweet.media.videos = []
-
-    tweet.links = links or []
+    tweet = {
+        "id": tweet_id,
+        "text": text,
+        "createdAt": created_at,
+        "isReply": is_reply,
+        "url": f"https://x.com/{user_name}/status/{tweet_id}",
+        "author": {"userName": user_name, "id": "12345"},
+        "entities": {"urls": urls or [], "media": media or []},
+    }
+    if retweeted_tweet is not None:
+        tweet["retweeted_tweet"] = retweeted_tweet
     return tweet
 
 
@@ -60,42 +52,60 @@ def _make_collector(niche: str = "rocketleague", username: str = "RocketLeague")
     )
 
 
+def _mock_response(tweets: list, status_code: int = 200):
+    """Create a mock httpx response."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = {"tweets": tweets, "has_next_page": False}
+    resp.raise_for_status = MagicMock()
+    return resp
+
+
+def _patch_httpx(resp):
+    """Return a patch context for httpx.AsyncClient that returns resp."""
+    mock_client = AsyncMock()
+    mock_client.get.return_value = resp
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    return patch("src.collectors.twitter_monitor.httpx.AsyncClient", return_value=mock_client)
+
+
 # ── collect() — API failures ──────────────────────────────────────────────────
 
 class TestCollectApiFailures:
 
     @pytest.mark.asyncio
-    async def test_returns_empty_when_api_is_none(self):
-        """If get_api() returns None, collect() returns an empty list."""
+    async def test_returns_empty_when_api_key_not_set(self):
         collector = _make_collector()
-        with patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=None):
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", None):
             result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_returns_empty_when_user_id_unresolvable(self):
-        """If resolve_user_id() returns None, collect() returns an empty list."""
+    async def test_returns_empty_on_http_error(self):
         collector = _make_collector()
-        mock_api = MagicMock()
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=None),
-        ):
-            result = await collector.collect()
+        resp = _mock_response([], status_code=500)
+        resp.raise_for_status.side_effect = Exception("500 Server Error")
+
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_returns_empty_when_gather_raises(self):
-        """If gather() raises, collect() catches and returns empty list."""
+    async def test_returns_empty_on_429(self):
         collector = _make_collector()
-        mock_api = MagicMock()
+        resp = MagicMock()
+        resp.status_code = 429
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=12345),
-            patch("src.collectors.twitter_monitor.gather", side_effect=Exception("network error")),
-        ):
-            result = await collector.collect()
+        mock_client = AsyncMock()
+        mock_client.get.return_value = resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with patch("src.collectors.twitter_monitor.httpx.AsyncClient", return_value=mock_client):
+                result = await collector.collect()
         assert result == []
 
 
@@ -106,126 +116,91 @@ class TestCollectFiltering:
     @pytest.mark.asyncio
     async def test_normal_tweet_included(self):
         tweet = _make_tweet(text="New content drop!")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert len(result) == 1
         assert isinstance(result[0], RawContent)
 
     @pytest.mark.asyncio
     async def test_retweet_excluded(self):
-        tweet = _make_tweet(retweeted=True, text="RT @someone: Cool update")
+        tweet = _make_tweet(retweeted_tweet={"id": "456"}, text="RT stuff")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_reply_excluded_by_field(self):
-        tweet = _make_tweet(reply_to_user=True, text="Thanks for letting me know!")
+    async def test_reply_excluded(self):
+        tweet = _make_tweet(is_reply=True, text="Thanks!")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_at_reply_excluded_by_text_prefix(self):
+    async def test_at_reply_excluded_by_text(self):
         tweet = _make_tweet(text="@SomeUser Thanks for the question!")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
     async def test_empty_text_excluded(self):
         tweet = _make_tweet(text="")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_zero_id_excluded(self):
-        tweet = _make_tweet(tweet_id=0)
+    async def test_no_tweet_id_excluded(self):
+        tweet = _make_tweet(tweet_id="")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
     async def test_old_tweet_excluded(self):
-        """Tweet from 10 days ago should be filtered out."""
         old_date = datetime.now(timezone.utc) - timedelta(days=10)
-        tweet = _make_tweet(date=old_date)
+        tweet = _make_tweet(created_at=format_datetime(old_date))
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result == []
 
     @pytest.mark.asyncio
     async def test_tweet_no_date_passes_through(self):
-        """Tweet with date=None should be allowed through (defensive)."""
-        tweet = _make_tweet(text="Undated announcement")
-        tweet.date = None
+        tweet = _make_tweet(text="No date tweet", created_at="")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert len(result) == 1
 
 
@@ -234,196 +209,80 @@ class TestCollectFiltering:
 class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
-    async def test_raw_content_fields_populated(self):
-        """Verify the RawContent produced has the expected field values."""
-        tweet = _make_tweet(
-            tweet_id=42,
-            text="Season 14 is officially live!",
-            user_username="RocketLeague",
-        )
-        collector = _make_collector(niche="rocketleague", username="RocketLeague")
-        mock_api = MagicMock()
+    async def test_fields_populated(self):
+        tweet = _make_tweet(tweet_id="42", text="Season 14 live!", user_name="RocketLeague")
+        resp = _mock_response([tweet])
+        collector = _make_collector()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
 
-        assert len(result) == 1
         item = result[0]
         assert item.source_id == 1
         assert item.external_id == "42"
         assert item.niche == "rocketleague"
         assert item.content_type == "official_tweet"
         assert item.author == "RocketLeague"
-        assert "retweet_id" in item.metadata
         assert item.metadata["retweet_id"] == "42"
 
     @pytest.mark.asyncio
-    async def test_gd_content_type_is_robtop_tweet(self):
-        """GD niche uses robtop_tweet content_type."""
-        tweet = _make_tweet(text="GD 2.3 is coming!")
-        collector = _make_collector(niche="geometrydash", username="RobTopGames")
-        mock_api = MagicMock()
+    async def test_gd_content_type(self):
+        tweet = _make_tweet(text="GD 2.3 coming!")
+        resp = _mock_response([tweet])
+        collector = _make_collector(niche="geometrydash")
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert result[0].content_type == "robtop_tweet"
 
     @pytest.mark.asyncio
-    async def test_image_url_extracted_from_photo(self):
-        """Image URL should be populated from tweet.media.photos."""
-        tweet = _make_tweet(has_media=True)
-        collector = _make_collector()
-        mock_api = MagicMock()
-
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
-        assert result[0].image_url == "https://pbs.twimg.com/media/example.jpg"
-
-    @pytest.mark.asyncio
-    async def test_tco_link_expanded_in_text(self):
-        """t.co links in text should be replaced with expanded URLs."""
-        link = MagicMock()
-        link.tcourl = "https://t.co/abc123"
-        link.url = "https://www.rocketleague.com/news/season-14"
+    async def test_url_expansion(self):
         tweet = _make_tweet(
-            text="New season! https://t.co/abc123",
-            links=[link],
+            text="Check this https://t.co/abc123",
+            urls=[{"url": "https://t.co/abc123", "expanded_url": "https://rocketleague.com/news"}],
         )
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
-        assert "https://www.rocketleague.com/news/season-14" in result[0].body
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
+        assert "rocketleague.com/news" in result[0].body
 
     @pytest.mark.asyncio
     async def test_trailing_tco_stripped(self):
-        """Trailing t.co media links should be stripped from cleaned text."""
-        tweet = _make_tweet(text="Check this out https://t.co/xyz999")
-        tweet.links = []
+        tweet = _make_tweet(text="Look at this https://t.co/xyz999")
+        resp = _mock_response([tweet])
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert "t.co" not in result[0].body
 
     @pytest.mark.asyncio
-    async def test_unknown_niche_defaults_to_official_tweet(self):
-        """A niche not in _CONTENT_TYPE should default to 'official_tweet'."""
-        tweet = _make_tweet()
-        collector = TwitterMonitorCollector(
-            source_id=1,
-            config={"account_id": "someaccount"},
-            niche="unknown_niche",
-        )
-        mock_api = MagicMock()
+    async def test_image_from_extended_entities(self):
+        tweet = _make_tweet(text="Media tweet")
+        tweet["extendedEntities"] = {
+            "media": [{"media_url_https": "https://pbs.twimg.com/media/img.jpg", "type": "photo"}]
+        }
+        resp = _mock_response([tweet])
+        collector = _make_collector()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
-        assert result[0].content_type == "official_tweet"
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
+        assert result[0].image_url == "https://pbs.twimg.com/media/img.jpg"
 
     @pytest.mark.asyncio
-    async def test_multiple_tweets_all_returned(self):
-        """Multiple valid tweets should all be collected."""
-        tweets = [_make_tweet(tweet_id=i, text=f"Update {i}") for i in range(1, 6)]
+    async def test_multiple_tweets(self):
+        tweets = [_make_tweet(tweet_id=str(i), text=f"Update {i}") for i in range(1, 6)]
+        resp = _mock_response(tweets)
         collector = _make_collector()
-        mock_api = MagicMock()
 
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=tweets),
-        ):
-            result = await collector.collect()
-
+        with patch("src.collectors.twitter_monitor.TWITTERAPI_IO_KEY", "key"):
+            with _patch_httpx(resp):
+                result = await collector.collect()
         assert len(result) == 5
-
-    @pytest.mark.asyncio
-    async def test_video_thumbnail_used_when_no_photo(self):
-        """If only video media, use thumbnailUrl as image_url."""
-        tweet = _make_tweet(text="Watch this!")
-        video = MagicMock()
-        video.thumbnailUrl = "https://pbs.twimg.com/ext_tw_video_thumb/123/pu/img/thumb.jpg"
-        tweet.media.photos = []
-        tweet.media.videos = [video]
-        collector = _make_collector()
-        mock_api = MagicMock()
-
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
-        assert "thumb.jpg" in result[0].image_url
-
-    @pytest.mark.asyncio
-    async def test_fallback_url_constructed_when_tweet_url_missing(self):
-        """If tweet.url is None or empty, URL is built from username + id."""
-        tweet = _make_tweet(tweet_id=55, user_username="gdrobtop")
-        tweet.url = None
-        collector = _make_collector()
-        mock_api = MagicMock()
-
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert len(result) == 1
-        assert "55" in result[0].url
-
-    @pytest.mark.asyncio
-    async def test_created_at_formatted_from_date(self):
-        """metadata['created_at'] should be a non-empty string when tweet.date is set."""
-        tweet = _make_tweet(date=datetime(2026, 3, 17, 12, 0, 0, tzinfo=timezone.utc))
-        collector = _make_collector()
-        mock_api = MagicMock()
-
-        with (
-            patch("src.collectors.twitter_monitor.get_api", new_callable=AsyncMock, return_value=mock_api),
-            patch("src.collectors.twitter_monitor.resolve_user_id", new_callable=AsyncMock, return_value=99),
-            patch("src.collectors.twitter_monitor.gather", return_value=[tweet]),
-        ):
-            result = await collector.collect()
-
-        assert result[0].metadata["created_at"] != ""

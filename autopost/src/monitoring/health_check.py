@@ -36,17 +36,14 @@ class ProbeResult:
 # ── Probes per source type ─────────────────────────────────────────────────────
 
 async def _probe_twitter(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
-    """Verify the twscrape pool is initialised and the account resolves to a user ID."""
-    from src.collectors.twscrape_pool import get_api, resolve_user_id
+    """Verify TwitterAPI.io is reachable and returning data for this account."""
+    from src.collectors.twscrape_pool import probe_twitter_api
 
     username = config.get("account_id", "")
-    api = await get_api()
-    if api is None:
-        return "degraded", "twscrape pool not initialised (TWSCRAPE_COOKIES missing?)"
-    user_id = await resolve_user_id(api, username)
-    if user_id is None:
-        return "degraded", f"could not resolve @{username}"
-    return "healthy", f"user_id={user_id}"
+    ok, detail = await probe_twitter_api(username)
+    if ok:
+        return "healthy", detail
+    return "degraded", detail
 
 
 async def _probe_youtube(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
