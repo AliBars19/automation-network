@@ -1,11 +1,9 @@
 """
-Unit tests for collectors — Twitter monitor parsing/filtering,
+Unit tests for collectors — Twitter monitor filtering,
 scraper classifier, RSS content-type inference.
 """
-import json
 import re
 from datetime import datetime, timezone, timedelta
-from email.utils import format_datetime
 
 import pytest
 
@@ -17,17 +15,21 @@ from src.collectors.scraper import _classify
 class TestTwitterAgeFilter:
     """Tests for the 7-day tweet age filtering in twitter_monitor.py.
     We test the filtering logic directly rather than through the collector
-    (which needs HTTP) to keep tests fast and isolated."""
+    (which needs twscrape) to keep tests fast and isolated.
+
+    The collector receives tweet.date as a datetime from twscrape and compares
+    it directly — no string parsing involved."""
 
     @staticmethod
-    def _is_within_7_days(created_at: str) -> bool:
+    def _is_within_7_days(tweet_time: datetime | None) -> bool:
         """Replicates the age filter logic from TwitterMonitorCollector.collect()."""
-        from email.utils import parsedate_to_datetime
-        if not created_at:
+        if tweet_time is None:
             return True  # no date → let it through
         try:
-            tweet_time = parsedate_to_datetime(created_at)
-            age = datetime.now(timezone.utc) - tweet_time
+            dt = tweet_time
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - dt
             return age <= timedelta(days=7)
         except Exception:
             return True  # unparseable → let it through
@@ -35,131 +37,88 @@ class TestTwitterAgeFilter:
     def test_recent_tweet_accepted(self):
         """Tweet from 1 hour ago should pass."""
         recent = datetime.now(timezone.utc) - timedelta(hours=1)
-        created_at = format_datetime(recent)
-        assert self._is_within_7_days(created_at) is True
+        assert self._is_within_7_days(recent) is True
 
     def test_old_tweet_rejected(self):
         """Tweet from 30 days ago should be filtered out."""
         old = datetime.now(timezone.utc) - timedelta(days=30)
-        created_at = format_datetime(old)
-        assert self._is_within_7_days(created_at) is False
+        assert self._is_within_7_days(old) is False
 
     def test_just_under_7_days_accepted(self):
         """Tweet from 6 days 23 hours ago should be accepted."""
         boundary = datetime.now(timezone.utc) - timedelta(days=6, hours=23)
-        created_at = format_datetime(boundary)
-        assert self._is_within_7_days(created_at) is True
+        assert self._is_within_7_days(boundary) is True
 
     def test_8_days_rejected(self):
         """Tweet from 8 days ago should be filtered out."""
         old = datetime.now(timezone.utc) - timedelta(days=8)
-        created_at = format_datetime(old)
-        assert self._is_within_7_days(created_at) is False
+        assert self._is_within_7_days(old) is False
 
-    def test_empty_date_passes_through(self):
-        """Empty created_at should let the tweet through (defensive)."""
-        assert self._is_within_7_days("") is True
+    def test_none_date_passes_through(self):
+        """None tweet.date should let the tweet through (defensive)."""
+        assert self._is_within_7_days(None) is True
 
-    def test_garbage_date_passes_through(self):
-        """Unparseable date should let the tweet through (defensive)."""
-        assert self._is_within_7_days("not-a-date") is True
-
-    def test_twitter_format_date(self):
-        """Test with actual Twitter date format: 'Fri Mar 06 17:14:51 +0000 2026'."""
-        recent = datetime.now(timezone.utc) - timedelta(hours=3)
-        twitter_fmt = recent.strftime("%a %b %d %H:%M:%S %z %Y")
-        assert self._is_within_7_days(twitter_fmt) is True
+    def test_naive_datetime_treated_as_utc(self):
+        """Naive datetime (no tzinfo) should be treated as UTC."""
+        recent_naive = datetime.utcnow() - timedelta(hours=2)
+        assert self._is_within_7_days(recent_naive) is True
 
 
-# ── Twitter monitor: __NEXT_DATA__ parsing ────────────────────────────────────
-
-class TestTwitterParsing:
-    """Tests for the regex and JSON extraction from syndication HTML."""
-
-    NEXT_DATA_RE = re.compile(
-        r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.DOTALL
-    )
-
-    def test_extracts_json_from_html(self):
-        payload = json.dumps({"props": {"pageProps": {"timeline": {"entries": []}}}})
-        html = f'<html><script id="__NEXT_DATA__" type="application/json">{payload}</script></html>'
-        m = self.NEXT_DATA_RE.search(html)
-        assert m is not None
-        data = json.loads(m.group(1))
-        assert data["props"]["pageProps"]["timeline"]["entries"] == []
-
-    def test_no_script_tag_returns_none(self):
-        html = "<html><body>No script here</body></html>"
-        m = self.NEXT_DATA_RE.search(html)
-        assert m is None
-
-    def test_handles_nested_json(self):
-        payload = json.dumps({
-            "props": {"pageProps": {"timeline": {"entries": [
-                {"type": "tweet", "content": {"tweet": {
-                    "conversation_id_str": "123",
-                    "text": "Hello world",
-                    "created_at": "Fri Mar 06 17:14:51 +0000 2026",
-                    "user": {"screen_name": "TestUser"},
-                }}}
-            ]}}}
-        })
-        html = f'<script id="__NEXT_DATA__">{payload}</script>'
-        m = self.NEXT_DATA_RE.search(html)
-        data = json.loads(m.group(1))
-        entries = data["props"]["pageProps"]["timeline"]["entries"]
-        assert len(entries) == 1
-        assert entries[0]["content"]["tweet"]["text"] == "Hello world"
-
-
-# ── Twitter monitor: reply/retweet filtering ──────────────────────────────────
+# ── Twitter monitor: reply/retweet filtering (twscrape field names) ───────────
 
 class TestTwitterFiltering:
-    """Tests for tweet filtering rules (skip replies, skip retweets)."""
+    """Tests for tweet filtering rules (skip replies, skip retweets).
+    Uses twscrape Tweet field names (retweetedTweet, inReplyToUser, rawContent)."""
 
     @staticmethod
     def _should_include(tweet: dict) -> bool:
         """Replicates the filtering logic from TwitterMonitorCollector.collect()."""
-        if tweet.get("retweeted_tweet"):
+        if tweet.get("retweetedTweet") is not None:
             return False
-        text = tweet.get("text", "")
+        if tweet.get("inReplyToUser") is not None:
+            return False
+        text = tweet.get("rawContent", "")
         if not text:
             return False
         if text.startswith("@"):
             return False
-        tweet_id = tweet.get("conversation_id_str", "")
+        tweet_id = tweet.get("id", 0)
         if not tweet_id:
             return False
         return True
 
     def test_normal_tweet_included(self):
-        tweet = {
-            "conversation_id_str": "123",
-            "text": "Rocket League Season 14 starts now!",
-        }
+        tweet = {"id": 123, "rawContent": "Rocket League Season 14 starts now!"}
         assert self._should_include(tweet) is True
 
     def test_retweet_excluded(self):
         tweet = {
-            "conversation_id_str": "123",
-            "text": "RT @someone: Great news",
-            "retweeted_tweet": {"id": "456"},
+            "id": 123,
+            "rawContent": "RT @someone: Great news",
+            "retweetedTweet": {"id": 456},
         }
         assert self._should_include(tweet) is False
 
-    def test_reply_excluded(self):
+    def test_reply_excluded_by_field(self):
+        """Reply detected by twscrape inReplyToUser field."""
         tweet = {
-            "conversation_id_str": "123",
-            "text": "@someone Thanks for the update!",
+            "id": 123,
+            "rawContent": "Thanks for the update!",
+            "inReplyToUser": {"id": 789, "username": "someone"},
         }
+        assert self._should_include(tweet) is False
+
+    def test_reply_excluded_by_at_prefix(self):
+        """Reply detected by text starting with @."""
+        tweet = {"id": 123, "rawContent": "@someone Thanks for the update!"}
         assert self._should_include(tweet) is False
 
     def test_empty_text_excluded(self):
-        tweet = {"conversation_id_str": "123", "text": ""}
+        tweet = {"id": 123, "rawContent": ""}
         assert self._should_include(tweet) is False
 
     def test_no_tweet_id_excluded(self):
-        tweet = {"conversation_id_str": "", "text": "Hello world"}
+        tweet = {"id": 0, "rawContent": "Hello world"}
         assert self._should_include(tweet) is False
 
 
