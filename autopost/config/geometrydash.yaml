@@ -96,6 +96,92 @@ sources:
     account_id: Netrimer
     poll_interval: 300          # Netermind — #2 Pointercrate stats, top completions
 
+  # ── Additional top players ─────────────────────────────────────────────────
+
+  - name: "@SakupenCircles"
+    type: twitter
+    account_id: SakupenCircles
+    poll_interval: 300          # Cursed — verified Abyss of Darkness, Subsuming Vortex
+
+  - name: "@WpopoffW"
+    type: twitter
+    account_id: WpopoffW
+    poll_interval: 300          # wPopoff — verified Amethyst (Top 1), top player
+
+  - name: "@spaceukGD"
+    type: twitter
+    account_id: spaceukGD
+    poll_interval: 600          # SpaceUK — #1 on Pointercrate, Twitch partner
+
+  # ── Content creators (Twitter accounts) ──────────────────────────────────
+
+  - name: "@TheRealGDColon"
+    type: twitter
+    account_id: TheRealGDColon
+    poll_interval: 600          # GD Colon — created GDBrowser, top GD content creator
+
+  - name: "@VanWilderman"
+    type: twitter
+    account_id: VanWilderman
+    poll_interval: 600          # EricVanWilderman — 1M+ YouTube subs, beat Sonic Wave
+
+  - name: "@1wulz"
+    type: twitter
+    account_id: 1wulz
+    poll_interval: 600          # Wulzy — popular GD content creator
+
+  - name: "@gdtrusta"
+    type: twitter
+    account_id: gdtrusta
+    poll_interval: 600          # TrusTa — Swedish player/creator, Galaxy Collapse creator
+
+  - name: "@JuniperGD"
+    type: twitter
+    account_id: JuniperGD
+    poll_interval: 900          # Juniper — GD moderator, YouTuber, Twitch partner
+
+  - name: "@NexusGMD"
+    type: twitter
+    account_id: NexusGMD
+    poll_interval: 900          # Nexus — popular GD player/YouTuber, 1M+ subs
+
+  - name: "@audieovisual"
+    type: twitter
+    account_id: audieovisual
+    poll_interval: 900          # AudieoVisual — GD animator, event level art
+
+  # ── Community / news accounts ────────────────────────────────────────────
+
+  - name: "@today_gd1"
+    type: twitter
+    account_id: today_gd1
+    poll_interval: 300          # GD Today backup — posts when main account is limited
+
+  - name: "@StatsGd"
+    type: twitter
+    account_id: StatsGd
+    poll_interval: 600          # GD Stats — player rankings, country leaderboards
+
+  - name: "@DashCup"
+    type: twitter
+    account_id: DashCup
+    poll_interval: 900          # GD E-Sports — competitive GD scene
+
+  - name: "@GD_Loops"
+    type: twitter
+    account_id: GD_Loops
+    poll_interval: 900          # GD Loops — curated GD content, community art
+
+  - name: "@DDOGDASH"
+    type: twitter
+    account_id: DDOGDASH
+    poll_interval: 900          # Daily Dose of GD — daily community content
+
+  - name: "@GDDiscord"
+    type: twitter
+    account_id: GDDiscord
+    poll_interval: 900          # Official GD Discord community account
+
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)

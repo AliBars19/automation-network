@@ -212,3 +212,52 @@ class TestFormatTweet:
         ))
         assert result is not None
         assert len(result) <= 280
+
+    def test_youtube_video_returns_none_rl(self):
+        """YouTube video posting is disabled -- should return None."""
+        result = format_tweet(self._make_content(content_type="youtube_video"))
+        assert result is None
+
+    def test_youtube_video_returns_none_gd(self):
+        """YouTube video posting is disabled for GD too."""
+        result = format_tweet(self._make_content(
+            niche="geometrydash", content_type="youtube_video",
+        ))
+        assert result is None
+
+    def test_pro_player_content_returns_none(self):
+        """Legacy pro_player_content is disabled."""
+        result = format_tweet(self._make_content(content_type="pro_player_content"))
+        assert result is None
+
+    def test_no_emoji_in_rl_patch_notes(self):
+        """RL templates should contain zero emoji characters."""
+        import re
+        result = format_tweet(self._make_content(
+            content_type="patch_notes",
+            title="Rocket League v2.40 Patch Notes",
+            body="Fixed bugs. Improved performance. New arena.",
+            url="https://rocketleague.com/news/patch",
+            metadata={"version": "2.40"},
+        ))
+        assert result is not None
+        # Match common emoji unicode ranges
+        emoji_pattern = re.compile(
+            "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
+            "\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF"
+            "\U00002702-\U000027B0\U0001F900-\U0001F9FF"
+            "\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF"
+            "\U00002600-\U000026FF]"
+        )
+        assert not emoji_pattern.search(result), f"Found emoji in: {result}"
+
+    def test_gd_templates_no_hashtags(self):
+        """GD templates should contain no hashtags."""
+        result = format_tweet(self._make_content(
+            niche="geometrydash",
+            content_type="top1_verified",
+            title="Thinking Space II",
+            metadata={"level": "Thinking Space II", "player": "Zoink"},
+        ))
+        assert result is not None
+        assert "#" not in result

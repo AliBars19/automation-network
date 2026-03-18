@@ -1,16 +1,17 @@
 """
-All tweet templates, keyed by niche → content_type.
+All tweet templates, keyed by niche -> content_type.
 
 Each content_type maps to a list of format strings.
-Multiple variants exist so posts don't feel repetitive — one is chosen at random.
+Multiple variants exist so posts don't feel repetitive -- one is chosen at random.
 None means "handle as a retweet, not a text template".
 
 Style references:
-  - HYPEX (@HYPEX): ALL CAPS headlines, bullet • lists, direct + punchy, emoji at end of header
-  - ShiinaBR (@ShiinaBR): "X DROPS @ TIME" format, dash-bullet lists, hype emoji in header
-  - iFireMonkey (@iFireMonkey): version-tagged, timestamped, comprehensive bullet lists
-  - kurrco (@kurrco): "[Subject] — [what happened]", quote detail, always media
-  - General news pages: 🚨 for breaking, short factual relay, speed over polish
+  - @ShiftRLE: "Sources:" for rumors, #RLCS on every post, ALL CAPS only for
+    championship celebrations, zero emojis in standard news
+  - @today_gd: Plain factual sentences, level names in quotes, zero emojis,
+    zero hashtags, editorial color for significant events
+  - @Dexerto: AP-newswire declarative sentences, zero emojis, zero hashtags
+  - @DemonListNews: "{player} has verified '{level}'" construction
 """
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -21,92 +22,77 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Patch notes / game updates ─────────────────────────────────────────────
     "patch_notes": [
-        # kurrco style
-        "Rocket League {version} — patch notes are out 🚗\n\n{summary}\n\n{url}",
-        # ShiinaBR style: time + bullet list
-        "ROCKET LEAGUE UPDATE {version} IS LIVE 🔄\n\n- {bullet1}\n- {bullet2}\n- {bullet3}\n\nFull notes: {url}",
-        # HYPEX style: ALL CAPS header, • bullets
-        "NEW ROCKET LEAGUE UPDATE ({version}) OUT NOW:\n\n• {bullet1}\n• {bullet2}\n• {bullet3}\n\n{url}",
-        # Understated / factual
-        "RL v{version} is now available.\n\n{summary}\n\n{url}",
-        # Patch preview (before it drops)
-        "Rocket League {version} patch notes are up 👀\n\nHere's what's changing:\n- {bullet1}\n- {bullet2}\n- {bullet3}\n\n{url}",
+        "Rocket League {version} is now live.\n\n{summary}\n\n{url}",
+        "Rocket League {version} patch notes:\n\n- {bullet1}\n- {bullet2}\n- {bullet3}\n\n{url}",
+        "Patch {version} has been deployed for Rocket League.\n\n{summary}\n\n{url}",
+        "RL {version} is now available.\n\n- {bullet1}\n- {bullet2}\n- {bullet3}\n\n{url}",
     ],
 
     # ── Esports results ────────────────────────────────────────────────────────
     "esports_result": [
-        # kurrco score format
-        "{event} — {stage}\n\n{team1} {score1}-{score2} {team2}\n\n{winner} take the series {emoji}",
-        # HYPEX ALL CAPS result
-        "{event} RESULTS 🏆\n\n{winner} {score1}-{score2} {loser}",
-        # Bracket advance
-        "{event}\n\n{winner} defeat {loser} {score} to advance {emoji}",
-        # Grand finals specific
-        "{event} Grand Finals\n\n{team1} {score1}-{score2} {team2}\n\n{winner} are your {event_short} Champions 🏆",
-        # Sweep callout
-        "{winner} sweep {loser} {score} at {event} {emoji}",
-        # Comeback callout
-        "{winner} come back from {deficit} down to beat {loser} at {event} 🔥",
+        "{winner} take down {loser} {score} at {event}. #RLCS",
+        "{winner} defeat {loser} {score1}-{score2} at {event}. #RLCS",
+        "{event}: {winner} {score1}-{score2} {loser}. #RLCS",
+        "{winner} sweep {loser} out of {event}. #RLCS",
+        "{winner} are your {event_short} Champions. #RLCS",
+        "{winner} reverse sweep {loser} at {event}. #RLCS",
     ],
 
     # ── Esports bracket / match preview ───────────────────────────────────────
     "esports_matchup": [
-        "{event} — {stage} 🎮\n\n{team1} vs {team2}\n\nStarts {time} UTC",
-        "MATCH ALERT 🚨\n\n{team1} vs {team2}\n{event} — {stage}\n\n{time} UTC",
-        "{event} {stage} is set:\n\n{team1} vs {team2}\n\nWho wins? 👇",
+        "{team1} vs {team2} coming up at {event} -- {stage}. #RLCS",
+        "{event} {stage}: {team1} vs {team2}. #RLCS",
+        "Next up at {event}: {team1} vs {team2}. #RLCS",
     ],
 
     # ── Esports event / tournament start ──────────────────────────────────────
     "event_announcement": [
-        "{event} kicks off today 🏟️\n\n{teams} teams competing\nPrize pool: {prize_pool}\n\nWatch: {url}",
-        "RLCS {event} STARTS NOW 🚨\n\n{details}\n\n{url}",
-        "{event} — Day {day} is underway 🎮\n\nSchedule: {url}",
+        "{event} begins today. {details}\n\n{url} #RLCS",
+        "{event} is underway.\n\n{details}\n\n{url} #RLCS",
+        "{event} Day {day} is live.\n\nSchedule: {url} #RLCS",
     ],
 
     # ── Roster / transfer news ─────────────────────────────────────────────────
     "roster_change": [
-        # kurrco style
-        "{player} — joins {team} {emoji}",
-        "{team} sign {player} for {season} 🔄",
-        "ROSTER MOVE: {player} has joined {team}\n\nPreviously on {old_team}",
-        "{player} is officially a free agent after parting ways with {old_team}",
-        "{team} announce their {season} roster:\n\n{roster_list}",
-        "{player} to {team} — {source} 🗞️",
+        "Sources: {player} is expected to join {team}. #RLCS",
+        "{player} to {team}, per sources. #RLCS",
+        "{team} sign {player} for {season}. #RLCS",
+        "{player} has been released from {old_team}. #RLCS",
+        "{team} announce their {season} roster:\n\n{roster_list}\n\n#RLCS",
+        "{player} is officially a free agent after parting ways with {old_team}. #RLCS",
     ],
 
     # ── Item shop ──────────────────────────────────────────────────────────────
     "item_shop": [
-        "Rocket League Item Shop — {date} 🛒\n\n{items}",
-        "TODAY'S ITEM SHOP IS LIVE 🛒\n\n{items}",
-        "New items in the Rocket League Item Shop today:\n\n{items}\n\n{url}",
-        "Item Shop Update — {date} 🎨\n\n{items}",
+        "Rocket League Item Shop for {date}:\n\n{items}",
+        "Today's Item Shop:\n\n{items}\n\n{url}",
+        "New in the Item Shop:\n\n{items}",
     ],
 
     # ── Season start ───────────────────────────────────────────────────────────
     "season_start": [
-        "Rocket League Season {number} is now live! 🏎️\n\n{highlights}\n\n{url}",
-        "SEASON {number} IS HERE 🚀\n\n• {highlight1}\n• {highlight2}\n• {highlight3}\n\n{url}",
-        "RL Season {number} just dropped 🔥\n\nNew this season:\n- {highlight1}\n- {highlight2}\n- {highlight3}\n\n{url}",
+        "Rocket League Season {number} is now live.\n\n{highlights}\n\n{url}",
+        "Season {number} has arrived.\n\n- {highlight1}\n- {highlight2}\n- {highlight3}\n\n{url}",
+        "Season {number} is here.\n\n- {highlight1}\n- {highlight2}\n- {highlight3}\n\n{url}",
     ],
 
     # ── Collab / crossover announcements ──────────────────────────────────────
     "collab_announcement": [
-        "{brand} x Rocket League is CONFIRMED 👀\n\n{details}",
-        "NEW COLLAB: {brand} is coming to Rocket League 🔥\n\n{details}\n\nAvailable {date}",
-        "{brand} items are now in Rocket League 🎮\n\n{details}\n\n{url}",
+        "{brand} x Rocket League has been announced.\n\n{details}",
+        "{brand} items are coming to Rocket League.\n\n{details}",
+        "{brand} collaboration now live in Rocket League.\n\n{details}\n\n{url}",
     ],
 
     # ── Community clip / highlight ─────────────────────────────────────────────
     "community_clip": [
-        "{title} 🔥\n\n📎 {url}",
-        "{player} just pulled off this 👇\n\n{url}",
-        "This {rank} player's {mechanic} is insane 🔥\n\n{url}",
+        "{title}\n\n{url}",
+        "{title}\n\n{url}",
     ],
 
-    # ── Rank / competitive milestone (pro players & creators only) ───────────
+    # ── Rank / competitive milestone ──────────────────────────────────────────
     "rank_milestone": [
-        "{player} has reached {rank} in Rocket League {emoji}",
-        "{player} — {achievement} {emoji}",
+        "{player} has reached {rank} in Rocket League.",
+        "{player} -- {achievement}.",
     ],
 
     # ── Flashback / on this day ────────────────────────────────────────────────
@@ -120,21 +106,11 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{headline}",
     ],
 
-    # ── YouTube video (pro players & creators) ─────────────────────────────────
-    "youtube_video": [
-        "New video from {creator}: \"{title}\"\n\n{url}",
-        "{creator} just uploaded: \"{title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{title}\"\n\n{url}",
-        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
-    ],
+    # ── YouTube video (disabled -- bot signal) ────────────────────────────────
+    "youtube_video": [None],
 
-    # ── Pro player content (YouTube — legacy content_type) ────────────────────
-    "pro_player_content": [
-        "New video from {creator}: \"{title}\"\n\n{url}",
-        "{creator} just uploaded: \"{title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{title}\"\n\n{url}",
-        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
-    ],
+    # ── Pro player content (disabled -- bot signal) ──────────────────────────
+    "pro_player_content": [None],
 
     # ── Breaking / miscellaneous news ─────────────────────────────────────────
     "breaking_news": [
@@ -155,17 +131,17 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Demon list updates ─────────────────────────────────────────────────────
     "demon_list_update": [
-        "Demon List Update:\n\n{changes}",
+        "Demon List has been updated.\n\n{changes}",
         "\"{level}\" has been placed at #{position} on the Demon List.",
-        "\"{level}\" moves from #{old_position} to #{position} on the Demon List.",
+        "\"{level}\" moved from #{old_position} to #{position} on the Demon List.",
         "Demon List Top 5:\n\n1. {top1}\n2. {top2}\n3. {top3}\n4. {top4}\n5. {top5}",
         "\"{level}\" by {creator} enters the Demon List at #{position}.",
     ],
 
-    # ── Top 1 verified (special — biggest news in GD) ─────────────────────────
+    # ── Top 1 verified (biggest news in GD -- only type that gets BREAKING) ──
     "top1_verified": [
-        "BREAKING: \"{level}\" has been verified by {player}, the new Top 1 on the Demon List.\n\n{details}",
-        "\"{level}\" has been verified by {player} — the new #1 on the Demon List.\n\n{url}",
+        "BREAKING: \"{level}\" has been verified by {player}. New Top 1 on the Demon List.\n\n{details}",
+        "\"{level}\" has been verified by {player} -- the new #1 on the Demon List.\n\n{url}",
         "{player} has verified \"{level}\", now the hardest rated level in Geometry Dash.\n\n{details}",
     ],
 
@@ -173,7 +149,7 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "level_verified": [
         "\"{level}\" has been verified by {player}. #{position} on the Demon List.\n\n{url}",
         "{player} has verified \"{level}\" (#{position} on the Demon List).\n\n{details}",
-        "BREAKING: \"{level}\" has been verified by {player}, placed at #{position} on the Demon List.",
+        "\"{level}\" has been verified by {player}, placed at #{position} on the Demon List.",
         "\"{level}\" is officially verified by {player}. #{position} on the Demon List.\n\n{url}",
     ],
 
@@ -198,8 +174,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     # ── Level rated ───────────────────────────────────────────────────────────
     "level_rated": [
         "\"{level_name}\" by {creator} has been rated. {difficulty}, {stars} stars.",
-        "New rated level: \"{level_name}\" by {creator}. {difficulty} | {stars} stars.",
-        "\"{level_name}\" by {creator} just got rated. {difficulty} — {stars} stars.",
+        "New rated level: \"{level_name}\" by {creator}. {difficulty}, {stars} stars.",
+        "\"{level_name}\" by {creator} just got rated ({difficulty}, {stars} stars).",
     ],
 
     # ── Daily level ────────────────────────────────────────────────────────────
@@ -223,13 +199,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "New GD mod: \"{mod_name}\"\n\n{description}\n\n{url}",
     ],
 
-    # ── YouTube video ─────────────────────────────────────────────────────────
-    "youtube_video": [
-        "New video from {creator}: \"{title}\"\n\n{url}",
-        "{creator} just uploaded: \"{title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{title}\"\n\n{url}",
-        "New upload from {creator} 🎬\n\n\"{title}\"\n\n{url}",
-    ],
+    # ── YouTube video (disabled -- bot signal) ────────────────────────────────
+    "youtube_video": [None],
 
     # ── Creator spotlight ─────────────────────────────────────────────────────
     "creator_spotlight": [
@@ -245,7 +216,7 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Breaking / miscellaneous news ─────────────────────────────────────────
     "breaking_news": [
-        "BREAKING: {headline}\n\n{details}",
+        "{headline}\n\n{details}",
         "{headline}\n\n{details}\n\n{url}",
     ],
 }
