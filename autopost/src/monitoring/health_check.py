@@ -5,7 +5,6 @@ reachable and returning data.  Sends a summary report to Discord.
 Runs at 03:00 UTC via APScheduler cron job (see main.py).
 """
 import json
-import re
 from dataclasses import dataclass
 
 import feedparser
@@ -24,13 +23,6 @@ _HEADERS = {
     ),
 }
 
-_SYNDICATION_URL = (
-    "https://syndication.twitter.com/srv/timeline-profile/screen-name/{username}"
-)
-_NEXT_DATA_RE = re.compile(
-    r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.DOTALL
-)
-
 
 @dataclass
 class ProbeResult:
@@ -44,25 +36,17 @@ class ProbeResult:
 # ── Probes per source type ─────────────────────────────────────────────────────
 
 async def _probe_twitter(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
+    """Verify the twscrape pool is initialised and the account resolves to a user ID."""
+    from src.collectors.twscrape_pool import get_api, resolve_user_id
+
     username = config.get("account_id", "")
-    url = _SYNDICATION_URL.format(username=username)
-    resp = await client.get(url)
-    if resp.status_code == 429:
-        return "healthy", "rate-limited (normal)"
-    resp.raise_for_status()
-    m = _NEXT_DATA_RE.search(resp.text)
-    if not m:
-        return "degraded", "no __NEXT_DATA__ in response"
-    data = json.loads(m.group(1))
-    entries = (
-        data.get("props", {})
-        .get("pageProps", {})
-        .get("timeline", {})
-        .get("entries", [])
-    )
-    if not entries:
-        return "degraded", "0 timeline entries"
-    return "healthy", f"{len(entries)} entries"
+    api = await get_api()
+    if api is None:
+        return "degraded", "twscrape pool not initialised (TWSCRAPE_COOKIES missing?)"
+    user_id = await resolve_user_id(api, username)
+    if user_id is None:
+        return "degraded", f"could not resolve @{username}"
+    return "healthy", f"user_id={user_id}"
 
 
 async def _probe_youtube(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
