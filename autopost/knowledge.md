@@ -137,4 +137,4 @@ Use `python3` instead of `python`. Or activate the venv first (`source venv/bin/
 ### Known limitations
 - GDBrowser daily/weekly level endpoints sometimes return no data (server-side issue)
 - Octane.gg returns nothing during RL esports off-season
-- Twitter monitor uses syndication scraping (no API credentials needed for reads)
+- Twitter monitor uses twscrape (cookie-based GraphQL API); requires TWSCRAPE_COOKIES in .env

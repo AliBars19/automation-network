@@ -567,7 +567,7 @@ async def main():
 
     # ── Skipped tests (need credentials) ──────────────────────────────────────
     buf.append("\n## ⏭️ Skipped (credentials required)\n")
-    buf.append("- **Twitter monitor** — uses syndication scraping (no credentials needed)")
+    buf.append("- **Twitter monitor** — uses twscrape (requires TWSCRAPE_COOKIES in .env)")
 
     buf.append("- **YouTube collector** — needs `YOUTUBE_API_KEY`")
     buf.append("- **Live posting** — needs X API keys + `DRY_RUN=false`")
