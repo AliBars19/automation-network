@@ -1,80 +1,126 @@
 """
-Shared twscrape API pool — singleton across all TwitterMonitorCollector instances.
+Twitter GraphQL client — cookie-based auth, no third-party scraping library.
 
-Manages cookie-based auth account pool and username → user_id resolution cache.
-Set TWSCRAPE_COOKIES in .env with pipe-separated cookie strings:
-    TWSCRAPE_COOKIES=auth_token=abc; ct0=def|auth_token=ghi; ct0=jkl
+Fetches current GraphQL query IDs from Twitter's JS bundles on startup,
+then uses them to resolve usernames and fetch timelines. This avoids
+depending on twscrape/twikit which break whenever Twitter rotates hashes.
+
+Set TWSCRAPE_COOKIES in .env:
+    TWSCRAPE_COOKIES=auth_token=abc; ct0=def
 
 Extract cookies from browser DevTools → Application → Cookies → x.com.
 Cookies expire periodically; refresh by updating the env var and restarting.
 """
 import asyncio
 import re
-from pathlib import Path
 
+import httpx
 from loguru import logger
-from twscrape import API
 
-from config.settings import DATA_DIR, TWSCRAPE_COOKIES
+from config.settings import TWSCRAPE_COOKIES
 
-_api: API | None = None
+# ── Singleton state ──────────────────────────────────────────────────────────
+
+_client: "TwitterGQLClient | None" = None
 _init_lock = asyncio.Lock()
 _user_id_cache: dict[str, int] = {}
 
-_POOL_PATH = Path(DATA_DIR) / "twscrape.db"
+_BEARER = (
+    "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs"
+    "%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
+)
 
 
-async def get_api() -> API | None:
-    """Return the shared twscrape API instance, initializing on first call."""
-    global _api
+class TwitterGQLClient:
+    """Thin wrapper around Twitter's internal GraphQL API using cookie auth."""
 
-    if _api is not None:
-        return _api
+    def __init__(self, auth_token: str, ct0: str, query_ids: dict[str, str]):
+        self.cookies = {"auth_token": auth_token, "ct0": ct0}
+        self.headers = {
+            "authorization": _BEARER,
+            "x-csrf-token": ct0,
+            "x-twitter-auth-type": "OAuth2Session",
+            "x-twitter-active-user": "yes",
+            "user-agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            ),
+        }
+        self.query_ids = query_ids
+
+    async def gql_get(self, operation: str, variables: dict, features: dict | None = None) -> dict:
+        """Execute a GraphQL GET request and return the JSON response."""
+        import json
+
+        qid = self.query_ids.get(operation)
+        if not qid:
+            raise ValueError(f"Unknown GraphQL operation: {operation}")
+
+        params = {"variables": json.dumps(variables)}
+        if features:
+            params["features"] = json.dumps(features)
+
+        async with httpx.AsyncClient(timeout=15) as http:
+            resp = await http.get(
+                f"https://x.com/i/api/graphql/{qid}/{operation}",
+                headers=self.headers,
+                cookies=self.cookies,
+                params=params,
+            )
+            if resp.status_code == 429:
+                logger.debug(f"[TwitterGQL] rate-limited on {operation}")
+                return {}
+            resp.raise_for_status()
+            return resp.json()
+
+
+# ── Public API (same signatures as old twscrape_pool) ────────────────────────
+
+async def get_api() -> TwitterGQLClient | None:
+    """Return the shared TwitterGQLClient, initializing on first call."""
+    global _client
+
+    if _client is not None:
+        return _client
 
     async with _init_lock:
-        # Double-check after acquiring lock
-        if _api is not None:
-            return _api
+        if _client is not None:
+            return _client
 
         cookies_raw = TWSCRAPE_COOKIES or ""
         if not cookies_raw:
             logger.error(
-                "[twscrape] TWSCRAPE_COOKIES not set — Twitter monitoring disabled"
+                "[TwitterGQL] TWSCRAPE_COOKIES not set — Twitter monitoring disabled"
             )
             return None
 
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-        # Fresh pool on each startup to ensure cookies match env var
-        if _POOL_PATH.exists():
-            _POOL_PATH.unlink()
-
-        api = API(pool=str(_POOL_PATH))
-
-        cookie_list = [c.strip() for c in cookies_raw.split("|") if c.strip()]
-        added = 0
-        for i, cookies in enumerate(cookie_list):
-            try:
-                await api.pool.add_account(
-                    f"pool_account_{i}", "x", f"pool{i}@x.com", "x",
-                    cookies=cookies,
-                )
-                added += 1
-            except Exception as exc:
-                safe_msg = re.sub(r"auth_token=[^\s;&|]+", "auth_token=***", str(exc))
-                safe_msg = re.sub(r"ct0=[^\s;&|]+", "ct0=***", safe_msg)
-                logger.warning(f"[twscrape] failed to add account #{i}: {safe_msg}")
-
-        if added == 0:
-            logger.error("[twscrape] no accounts added — Twitter monitoring disabled")
+        auth_token, ct0 = _parse_cookies(cookies_raw)
+        if not auth_token or not ct0:
+            logger.error(
+                "[TwitterGQL] TWSCRAPE_COOKIES missing auth_token or ct0 — "
+                "Twitter monitoring disabled"
+            )
             return None
 
-        _api = api
-        logger.info(f"[twscrape] pool initialized with {added} account(s)")
-        return _api
+        query_ids = await _fetch_query_ids(auth_token, ct0)
+        if not query_ids:
+            logger.error("[TwitterGQL] failed to fetch GraphQL query IDs")
+            return None
+
+        needed = {"UserByScreenName", "UserTweets"}
+        missing = needed - set(query_ids)
+        if missing:
+            logger.error(f"[TwitterGQL] missing query IDs: {missing}")
+            return None
+
+        _client = TwitterGQLClient(auth_token, ct0, query_ids)
+        logger.info(
+            f"[TwitterGQL] initialized — {len(query_ids)} query IDs loaded"
+        )
+        return _client
 
 
-async def resolve_user_id(api: API, username: str) -> int | None:
+async def resolve_user_id(client: TwitterGQLClient, username: str) -> int | None:
     """Resolve a Twitter username to a numeric user ID, with in-memory cache."""
     key = username.lower()
 
@@ -82,12 +128,89 @@ async def resolve_user_id(api: API, username: str) -> int | None:
         return _user_id_cache[key]
 
     try:
-        user = await api.user_by_login(username)
-        if user and user.id:
-            _user_id_cache[key] = user.id
-            logger.debug(f"[twscrape] resolved @{username} → {user.id}")
-            return user.id
+        data = await client.gql_get(
+            "UserByScreenName",
+            {"screen_name": username, "withSafetyModeUserFields": True},
+            {
+                "hidden_profile_subscriptions_enabled": True,
+                "responsive_web_graphql_exclude_directive_enabled": True,
+                "verified_phone_label_enabled": False,
+                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+                "responsive_web_graphql_timeline_navigation_enabled": True,
+            },
+        )
+        rest_id = (
+            data.get("data", {})
+            .get("user", {})
+            .get("result", {})
+            .get("rest_id")
+        )
+        if rest_id:
+            uid = int(rest_id)
+            _user_id_cache[key] = uid
+            logger.debug(f"[TwitterGQL] resolved @{username} → {uid}")
+            return uid
     except Exception as exc:
-        logger.error(f"[twscrape] failed to resolve @{username}: {exc}")
+        logger.error(f"[TwitterGQL] failed to resolve @{username}: {exc}")
 
     return None
+
+
+# ── Internal helpers ─────────────────────────────────────────────────────────
+
+def _parse_cookies(raw: str) -> tuple[str, str]:
+    """Extract auth_token and ct0 from the first cookie segment."""
+    # Take the first pipe-separated segment
+    segment = raw.split("|")[0].strip()
+    auth_token = ""
+    ct0 = ""
+    for part in segment.split(";"):
+        part = part.strip()
+        if part.startswith("auth_token="):
+            auth_token = part.split("=", 1)[1].strip()
+        elif part.startswith("ct0="):
+            ct0 = part.split("=", 1)[1].strip()
+    return auth_token, ct0
+
+
+async def _fetch_query_ids(auth_token: str, ct0: str) -> dict[str, str]:
+    """Fetch current GraphQL query IDs from Twitter's JS bundles."""
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            # Load x.com to find JS bundle URLs
+            resp = await http.get(
+                "https://x.com",
+                cookies={"auth_token": auth_token, "ct0": ct0},
+                headers={
+                    "user-agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36"
+                    ),
+                },
+                follow_redirects=True,
+            )
+            js_urls = re.findall(
+                r"https://abs\.twimg\.com/responsive-web/client-web[^\"]+\.js",
+                resp.text,
+            )
+            if not js_urls:
+                logger.error("[TwitterGQL] no JS bundle URLs found on x.com")
+                return {}
+
+            # Scan bundles for queryId:operationName pairs
+            query_ids: dict[str, str] = {}
+            for url in js_urls[:8]:
+                js_resp = await http.get(url, timeout=15)
+                for match in re.finditer(
+                    r'queryId:"([^"]+)",operationName:"(\w+)"', js_resp.text
+                ):
+                    query_ids[match.group(2)] = match.group(1)
+
+            logger.info(
+                f"[TwitterGQL] scraped {len(query_ids)} query IDs from "
+                f"{len(js_urls)} JS bundles"
+            )
+            return query_ids
+    except Exception as exc:
+        logger.error(f"[TwitterGQL] failed to fetch query IDs: {exc}")
+        return {}

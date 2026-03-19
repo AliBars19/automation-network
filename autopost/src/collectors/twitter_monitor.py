@@ -1,22 +1,17 @@
 """
-Twitter/X monitor — watches accounts via twscrape (Twitter GraphQL API).
+Twitter/X monitor — watches accounts via Twitter's internal GraphQL API.
 
-Uses cookie-based authentication with account pooling for rate-limit rotation.
-Set TWSCRAPE_COOKIES in .env with pipe-separated cookie strings:
-    TWSCRAPE_COOKIES=auth_token=abc; ct0=def|auth_token=ghi; ct0=jkl
-
-Extract cookies from browser DevTools → Application → Cookies → x.com
-(copy auth_token and ct0 values). Cookies expire periodically — refresh
-by updating the env var and restarting the service.
+Uses cookie-based authentication. Set TWSCRAPE_COOKIES in .env:
+    TWSCRAPE_COOKIES=auth_token=abc; ct0=def
 
 Retweet signals are stored with metadata["retweet_id"] so the poster can
 call client.retweet() instead of client.post_tweet().
 """
 import re
 from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 
 from loguru import logger
-from twscrape import gather
 
 from src.collectors.base import BaseCollector, RawContent
 from src.collectors.twscrape_pool import get_api, resolve_user_id
@@ -27,10 +22,23 @@ _CONTENT_TYPE: dict[str, str] = {
     "geometrydash": "robtop_tweet",
 }
 
+_USER_TWEETS_FEATURES = {
+    "responsive_web_graphql_exclude_directive_enabled": True,
+    "verified_phone_label_enabled": False,
+    "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+    "responsive_web_graphql_timeline_navigation_enabled": True,
+    "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": True,
+    "creator_subscriptions_tweet_preview_api_enabled": True,
+    "rweb_tipjar_consumption_enabled": True,
+    "longform_notetweets_inline_media_enabled": True,
+    "longform_notetweets_rich_text_read_enabled": True,
+}
+
 
 class TwitterMonitorCollector(BaseCollector):
     """
-    Fetches recent original tweets from one monitored X account via twscrape.
+    Fetches recent original tweets from one monitored X account via
+    Twitter's internal GraphQL API.
 
     config keys (from YAML):
         account_id    (str)  Twitter username without @  e.g. "RocketLeague"
@@ -43,37 +51,52 @@ class TwitterMonitorCollector(BaseCollector):
         self.username = config["account_id"]
 
     async def collect(self) -> list[RawContent]:
-        api = await get_api()
-        if api is None:
+        client = await get_api()
+        if client is None:
             return []
 
-        user_id = await resolve_user_id(api, self.username)
+        user_id = await resolve_user_id(client, self.username)
         if user_id is None:
             return []
 
         try:
-            tweets = await gather(api.user_tweets(user_id, limit=20))
+            data = await client.gql_get(
+                "UserTweets",
+                {
+                    "userId": str(user_id),
+                    "count": 20,
+                    "includePromotedContent": False,
+                    "withQuickPromoteEligibilityTweetFields": True,
+                    "withVoice": True,
+                    "withV2Timeline": True,
+                },
+                _USER_TWEETS_FEATURES,
+            )
         except Exception as exc:
             logger.error(f"[TwitterMonitor] @{self.username} fetch failed: {exc}")
             return []
 
+        tweets = _extract_tweets(data)
         content_type = _CONTENT_TYPE.get(self.niche, "official_tweet")
         items: list[RawContent] = []
 
         for tweet in tweets:
+            legacy = tweet.get("legacy", {})
+            core = tweet.get("core", {}).get("user_results", {}).get("result", {})
+
             # Skip retweets
-            if tweet.retweetedTweet is not None:
+            if "retweeted_status_result" in tweet:
                 continue
 
-            # Skip replies (detected by twscrape field)
-            if tweet.inReplyToUser is not None:
+            # Skip replies
+            if legacy.get("in_reply_to_user_id_str"):
                 continue
 
-            tweet_id = str(tweet.id)
-            if not tweet_id or tweet_id == "0":
+            tweet_id = legacy.get("id_str", "")
+            if not tweet_id:
                 continue
 
-            text = tweet.rawContent or ""
+            text = legacy.get("full_text", "")
             if not text:
                 continue
 
@@ -82,46 +105,40 @@ class TwitterMonitorCollector(BaseCollector):
                 continue
 
             # Only accept tweets from the last 7 days
-            if tweet.date:
+            created_at = legacy.get("created_at", "")
+            if created_at:
                 try:
-                    tweet_time = tweet.date
-                    if tweet_time.tzinfo is None:
-                        tweet_time = tweet_time.replace(tzinfo=timezone.utc)
-                    age = datetime.now(timezone.utc) - tweet_time
-                    if age > timedelta(days=7):
+                    tweet_time = parsedate_to_datetime(created_at)
+                    if datetime.now(timezone.utc) - tweet_time > timedelta(days=7):
                         continue
                 except Exception:
                     pass  # unparseable date — let it through
 
-            screen_name = tweet.user.username if tweet.user else self.username
-            tweet_url = tweet.url or f"https://x.com/{screen_name}/status/{tweet_id}"
+            screen_name = (
+                core.get("legacy", {}).get("screen_name")
+                or self.username
+            )
+            tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
 
-            # Format created_at for metadata
-            created_at = ""
-            if tweet.date:
-                try:
-                    created_at = tweet.date.strftime("%a %b %d %H:%M:%S %z %Y")
-                except Exception:
-                    created_at = str(tweet.date)
-
-            # Extract first image/video thumbnail
+            # Extract first image URL from media entities
             image_url = ""
             try:
-                if tweet.media.photos:
-                    image_url = tweet.media.photos[0].url
-                elif tweet.media.videos:
-                    image_url = tweet.media.videos[0].thumbnailUrl
-            except (AttributeError, IndexError):
+                media_list = (
+                    legacy.get("extended_entities", {}).get("media", [])
+                    or legacy.get("entities", {}).get("media", [])
+                )
+                if media_list:
+                    image_url = media_list[0].get("media_url_https", "")
+            except (AttributeError, IndexError, TypeError):
                 pass
 
-            # Expand t.co links using tweet entity data
+            # Expand t.co links
             clean_text = text
-            try:
-                for link in (tweet.links or []):
-                    if link.tcourl and link.url:
-                        clean_text = clean_text.replace(link.tcourl, link.url)
-            except (AttributeError, TypeError):
-                pass
+            for url_entity in legacy.get("entities", {}).get("urls", []):
+                short = url_entity.get("url", "")
+                expanded = url_entity.get("expanded_url", "")
+                if short and expanded:
+                    clean_text = clean_text.replace(short, expanded)
 
             # Remove trailing t.co media links
             clean_text = re.sub(r"\s*https://t\.co/\w+\s*$", "", clean_text).strip()
@@ -151,3 +168,27 @@ class TwitterMonitorCollector(BaseCollector):
             f"[TwitterMonitor] @{self.username} → {len(items)} tweets to consider"
         )
         return items
+
+
+def _extract_tweets(data: dict) -> list[dict]:
+    """Walk the GraphQL response tree to find tweet result objects."""
+    tweets: list[dict] = []
+    seen: set[str] = set()
+    _walk(data, tweets, seen)
+    return tweets
+
+
+def _walk(obj, tweets: list[dict], seen: set[str]) -> None:
+    """Recursively find tweet objects with a legacy.full_text field."""
+    if isinstance(obj, dict):
+        legacy = obj.get("legacy")
+        if isinstance(legacy, dict) and "full_text" in legacy:
+            tid = legacy.get("id_str", "")
+            if tid and tid not in seen:
+                seen.add(tid)
+                tweets.append(obj)
+        for v in obj.values():
+            _walk(v, tweets, seen)
+    elif isinstance(obj, list):
+        for item in obj:
+            _walk(item, tweets, seen)
