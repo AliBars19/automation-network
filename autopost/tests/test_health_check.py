@@ -24,29 +24,37 @@ from src.monitoring.health_check import (
 # ── _probe_twitter() ──────────────────────────────────────────────────────────
 
 class TestProbeTwitter:
-    # NOTE: probe_twitter_api is imported locally inside _probe_twitter,
-    # so it must be patched on the twscrape_pool module.
+    # NOTE: get_api and resolve_user_id are imported locally inside _probe_twitter,
+    # so they must be patched on the twscrape_pool module, not on health_check.
 
     @pytest.mark.asyncio
-    async def test_degraded_when_api_key_not_set(self):
-        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(False, "TWITTERAPI_IO_KEY not set")):
+    async def test_degraded_when_api_is_none(self):
+        with patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=None):
             status, detail = await _probe_twitter({"account_id": "RocketLeague"}, MagicMock())
         assert status == "degraded"
-        assert "not set" in detail
+        assert "TWSCRAPE_COOKIES" in detail
 
     @pytest.mark.asyncio
-    async def test_degraded_when_api_returns_error(self):
-        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(False, "HTTP 401")):
+    async def test_degraded_when_user_id_unresolvable(self):
+        mock_api = MagicMock()
+        with (
+            patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=mock_api),
+            patch("src.collectors.twscrape_pool.resolve_user_id", new_callable=AsyncMock, return_value=None),
+        ):
             status, detail = await _probe_twitter({"account_id": "GhostUser"}, MagicMock())
         assert status == "degraded"
-        assert "401" in detail
+        assert "GhostUser" in detail
 
     @pytest.mark.asyncio
-    async def test_healthy_when_api_succeeds(self):
-        with patch("src.collectors.twscrape_pool.probe_twitter_api", new_callable=AsyncMock, return_value=(True, "5 tweets returned")):
+    async def test_healthy_when_user_resolves(self):
+        mock_api = MagicMock()
+        with (
+            patch("src.collectors.twscrape_pool.get_api", new_callable=AsyncMock, return_value=mock_api),
+            patch("src.collectors.twscrape_pool.resolve_user_id", new_callable=AsyncMock, return_value=99999),
+        ):
             status, detail = await _probe_twitter({"account_id": "RocketLeague"}, MagicMock())
         assert status == "healthy"
-        assert "5 tweets" in detail
+        assert "99999" in detail
 
 
 # ── _probe_youtube() ──────────────────────────────────────────────────────────
@@ -416,3 +424,185 @@ class TestRunHealthCheck:
         # Should be at error level since we have a dead source
         call_kwargs = mock_alert.call_args[1]
         assert call_kwargs.get("level") == "error"
+
+
+# ── run_health_check() — report builder branches ──────────────────────────────
+
+def _make_row(id, niche, name, stype, config, enabled):
+    """Build a dict-like MagicMock that supports row['key'] access."""
+    data = {"id": id, "niche": niche, "name": name, "type": stype,
+            "config": json.dumps(config), "enabled": enabled}
+    m = MagicMock()
+    m.__getitem__ = lambda s, k: data[k]
+    return m
+
+
+def _patch_db_with_rows(mock_db, rows):
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = rows
+    mock_db.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_db.return_value.__exit__ = MagicMock(return_value=False)
+
+
+def _patch_httpx(mock_client_cls):
+    mock_http = AsyncMock()
+    mock_http.__aenter__ = AsyncMock(return_value=mock_http)
+    mock_http.__aexit__ = AsyncMock(return_value=None)
+    mock_client_cls.return_value = mock_http
+    return mock_http
+
+
+class TestRunHealthCheckReportBranches:
+    """Cover report-building branches and alert-level selection in run_health_check."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_source_type_marked_degraded(self):
+        """A source with a type not in _PROBE_MAP should be reported as degraded."""
+        rows = [_make_row(10, "rocketleague", "Weird Src", "custom_type", {}, 1)]
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        mock_alert.assert_awaited_once()
+        report_text = mock_alert.call_args[0][0]
+        assert "Weird Src" in report_text
+
+    @pytest.mark.asyncio
+    async def test_successful_probe_result_appended_and_reported(self):
+        """A probe returning ('healthy', ...) should appear in the healthy report section."""
+        rows = [_make_row(11, "rocketleague", "Good RSS", "probed", {"url": "https://x.com"}, 1)]
+        mock_probe = AsyncMock(return_value=("healthy", "5 entries"))
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check._PROBE_MAP", {"probed": mock_probe}),
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        mock_probe.assert_awaited_once()
+        mock_alert.assert_awaited_once()
+        report_text = mock_alert.call_args[0][0]
+        assert "Good RSS" in report_text
+        level = mock_alert.call_args[1].get("level")
+        assert level == "success"
+
+    @pytest.mark.asyncio
+    async def test_degraded_probe_triggers_warning_level(self):
+        """If only degraded sources (no dead), alert level should be 'warning'."""
+        rows = [_make_row(12, "rocketleague", "Slow RSS", "probed", {"url": "https://x.com"}, 1)]
+        mock_probe = AsyncMock(return_value=("degraded", "0 entries"))
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check._PROBE_MAP", {"probed": mock_probe}),
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        mock_probe.assert_awaited_once()
+        mock_alert.assert_awaited_once()
+        report_text = mock_alert.call_args[0][0]
+        assert "Slow RSS" in report_text
+        level = mock_alert.call_args[1].get("level")
+        assert level == "warning"
+
+    @pytest.mark.asyncio
+    async def test_all_healthy_sources_triggers_success_level(self):
+        """All-healthy result set should produce 'success' level alert."""
+        rows = [
+            _make_row(13, "rocketleague", "RSS A", "probed", {"url": "https://a.com"}, 1),
+            _make_row(14, "geometrydash",  "RSS B", "probed", {"url": "https://b.com"}, 1),
+        ]
+        mock_probe = AsyncMock(return_value=("healthy", "10 entries"))
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check._PROBE_MAP", {"probed": mock_probe}),
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        mock_alert.assert_awaited_once()
+        level = mock_alert.call_args[1].get("level")
+        assert level == "success"
+        report_text = mock_alert.call_args[0][0]
+        assert "Healthy" in report_text
+
+    @pytest.mark.asyncio
+    async def test_generic_probe_exception_marks_source_dead(self):
+        """If a probe raises a non-HTTP exception, source is marked dead."""
+        rows = [_make_row(15, "rocketleague", "Flaky RSS", "probed", {"url": "https://c.com"}, 1)]
+        mock_probe = AsyncMock(side_effect=RuntimeError("connection reset"))
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check._PROBE_MAP", {"probed": mock_probe}),
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        mock_alert.assert_awaited_once()
+        level = mock_alert.call_args[1].get("level")
+        assert level == "error"
+        report_text = mock_alert.call_args[0][0]
+        assert "Flaky RSS" in report_text
+
+    @pytest.mark.asyncio
+    async def test_report_contains_healthy_degraded_and_dead_sections(self):
+        """A mixed result set should produce all three sections in the report."""
+        rows = [
+            _make_row(16, "rl", "Healthy RSS",  "probed", {"url": "https://h.com"}, 1),
+            _make_row(17, "rl", "Degraded RSS", "probed", {"url": "https://d.com"}, 1),
+            _make_row(18, "rl", "Dead RSS",     "probed", {"url": "https://x.com"}, 1),
+        ]
+
+        call_count = 0
+
+        async def _mixed_probe(config, client):
+            nonlocal call_count
+            call_count += 1
+            url = config.get("url", "")
+            if "h.com" in url:
+                return "healthy", "5 entries"
+            if "d.com" in url:
+                return "degraded", "0 entries"
+            raise httpx.HTTPStatusError("404", request=MagicMock(), response=MagicMock(status_code=404))
+
+        with (
+            patch("src.monitoring.health_check.get_db") as mock_db,
+            patch("src.monitoring.health_check._PROBE_MAP", {"probed": _mixed_probe}),
+            patch("src.monitoring.health_check.send_alert", new_callable=AsyncMock) as mock_alert,
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
+            _patch_db_with_rows(mock_db, rows)
+            _patch_httpx(mock_client_cls)
+            await run_health_check()
+
+        assert call_count == 3
+        mock_alert.assert_awaited_once()
+        level = mock_alert.call_args[1].get("level")
+        assert level == "error"
+        report_text = mock_alert.call_args[0][0]
+        assert "Healthy" in report_text
+        assert "Degraded" in report_text
+        assert "Dead" in report_text
+        assert "Action needed" in report_text
