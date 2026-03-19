@@ -1,0 +1,10 @@
+.env
+data/autopost.db
+data/twscrape.db
+data/media/
+logs/
+__pycache__/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.coverage
