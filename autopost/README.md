@@ -9,7 +9,7 @@ No AI generation. Pure template-based posting. Runs 24/7 on a DigitalOcean dropl
 ## How it works
 
 ```
-Sources (RSS / APIs / YouTube / X syndication scraping)
+Sources (RSS / APIs / YouTube / X via twscrape)
         |  collectors/
 SQLite raw_content  <-  dedup (UNIQUE source_id + external_id)
         |  formatter/
@@ -44,7 +44,7 @@ post_log  ->  Discord alerts on failure
 | RSS | Steam News (GD) |
 | APIs | Pointercrate Demon List, GDBrowser, Geode SDK (GitHub) |
 
-Twitter monitoring uses **syndication scraping** — no API read credentials needed.
+Twitter monitoring uses **twscrape** (cookie-based GraphQL) — requires `TWSCRAPE_COOKIES` in `.env`.
 
 ---
 
@@ -62,7 +62,8 @@ autopost/
 │   │   ├── base.py            # RawContent dataclass + BaseCollector ABC
 │   │   ├── rss.py             # feedparser RSS/Atom
 │   │   ├── scraper.py         # BeautifulSoup headline scraper
-│   │   ├── twitter_monitor.py # syndication scraping (no API creds needed)
+│   │   ├── twitter_monitor.py # twscrape-based account monitor
+│   │   ├── twscrape_pool.py   # shared twscrape API pool (singleton + user ID cache)
 │   │   ├── youtube.py         # YouTube Data API v3
 │   │   └── apis/
 │   │       ├── pointercrate.py  # GD demon list
@@ -87,7 +88,7 @@ autopost/
 │       └── health_check.py    # daily source integrity check (03:05 UTC)
 ├── tests/                     # 100 unit tests (pytest)
 │   ├── test_formatter.py      # _cap, _truncate, emoji, templates
-│   ├── test_collectors.py     # age filter, syndication parsing, classifier
+│   ├── test_collectors.py     # age filter, tweet field filtering, classifier
 │   ├── test_media.py          # dimension check, resize, hash paths
 │   ├── test_rate_limiter.py   # posting window, jitter, constants
 │   └── test_db.py             # timestamps, similarity dedup
@@ -129,6 +130,7 @@ nano .env   # fill in your API keys
 | `RL_API_KEY` + 3 others | [developer.twitter.com](https://developer.twitter.com/en/portal/dashboard) — create app for @rl_wire1 |
 | `GD_API_KEY` + 3 others | Same portal — create app for @gd_wire |
 | `YOUTUBE_API_KEY` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) |
+| `TWSCRAPE_COOKIES` | Browser DevTools → Application → Cookies → x.com — copy `auth_token` and `ct0`, pipe-separate multiple accounts |
 | `DISCORD_WEBHOOK_URL` | Discord server -> Integrations -> Webhooks (optional) |
 
 ### 3. Initialise the database
@@ -234,4 +236,4 @@ sqlite3 data/autopost.db \
 
 ## Tech stack
 
-Python 3.12 · Tweepy · feedparser · httpx · BeautifulSoup · SQLite · APScheduler · Pillow · loguru · pytest · systemd
+Python 3.12 · Tweepy · twscrape · feedparser · httpx · BeautifulSoup · SQLite · APScheduler · Pillow · loguru · pytest · systemd
