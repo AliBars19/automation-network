@@ -16,7 +16,8 @@ from loguru import logger
 
 from src.collectors.base import BaseCollector, RawContent
 
-_OCTANE_BASE = "https://zsr.octane.gg"
+# Octane ZSR has broken TLS/SNI — HTTP only (public read-only API, no sensitive data)
+_OCTANE_BASE = "http://zsr.octane.gg"
 _TIMEOUT     = 15
 
 # Stats to check with human-readable labels
