@@ -12,6 +12,7 @@ Extract cookies from browser DevTools → Application → Cookies → x.com.
 Cookies expire periodically; refresh by updating the env var and restarting.
 """
 import asyncio
+import json
 import re
 
 import httpx
@@ -19,16 +20,24 @@ from loguru import logger
 
 from config.settings import TWSCRAPE_COOKIES
 
-# ── Singleton state ──────────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────────────
 
-_client: "TwitterGQLClient | None" = None
-_init_lock = asyncio.Lock()
-_user_id_cache: dict[str, int] = {}
+OP_USER_BY_SCREEN_NAME = "UserByScreenName"
+OP_USER_TWEETS = "UserTweets"
+_REQUIRED_OPS = {OP_USER_BY_SCREEN_NAME, OP_USER_TWEETS}
+
+_MAX_CACHE_SIZE = 500
 
 _BEARER = (
     "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs"
     "%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 )
+
+# ── Singleton state ──────────────────────────────────────────────────────────
+
+_client: "TwitterGQLClient | None" = None
+_init_lock = asyncio.Lock()
+_user_id_cache: dict[str, int] = {}
 
 
 class TwitterGQLClient:
@@ -47,11 +56,10 @@ class TwitterGQLClient:
             ),
         }
         self.query_ids = query_ids
+        self._http = httpx.AsyncClient(timeout=15)
 
     async def gql_get(self, operation: str, variables: dict, features: dict | None = None) -> dict:
         """Execute a GraphQL GET request and return the JSON response."""
-        import json
-
         qid = self.query_ids.get(operation)
         if not qid:
             raise ValueError(f"Unknown GraphQL operation: {operation}")
@@ -60,18 +68,17 @@ class TwitterGQLClient:
         if features:
             params["features"] = json.dumps(features)
 
-        async with httpx.AsyncClient(timeout=15) as http:
-            resp = await http.get(
-                f"https://x.com/i/api/graphql/{qid}/{operation}",
-                headers=self.headers,
-                cookies=self.cookies,
-                params=params,
-            )
-            if resp.status_code == 429:
-                logger.debug(f"[TwitterGQL] rate-limited on {operation}")
-                return {}
-            resp.raise_for_status()
-            return resp.json()
+        resp = await self._http.get(
+            f"https://x.com/i/api/graphql/{qid}/{operation}",
+            headers=self.headers,
+            cookies=self.cookies,
+            params=params,
+        )
+        if resp.status_code == 429:
+            logger.debug(f"[TwitterGQL] rate-limited on {operation}")
+            return {}
+        resp.raise_for_status()
+        return resp.json()
 
 
 # ── Public API (same signatures as old twscrape_pool) ────────────────────────
@@ -107,8 +114,7 @@ async def get_api() -> TwitterGQLClient | None:
             logger.error("[TwitterGQL] failed to fetch GraphQL query IDs")
             return None
 
-        needed = {"UserByScreenName", "UserTweets"}
-        missing = needed - set(query_ids)
+        missing = _REQUIRED_OPS - set(query_ids)
         if missing:
             logger.error(f"[TwitterGQL] missing query IDs: {missing}")
             return None
@@ -129,7 +135,7 @@ async def resolve_user_id(client: TwitterGQLClient, username: str) -> int | None
 
     try:
         data = await client.gql_get(
-            "UserByScreenName",
+            OP_USER_BY_SCREEN_NAME,
             {"screen_name": username, "withSafetyModeUserFields": True},
             {
                 "hidden_profile_subscriptions_enabled": True,
@@ -147,6 +153,8 @@ async def resolve_user_id(client: TwitterGQLClient, username: str) -> int | None
         )
         if rest_id:
             uid = int(rest_id)
+            if len(_user_id_cache) >= _MAX_CACHE_SIZE:
+                _user_id_cache.pop(next(iter(_user_id_cache)))
             _user_id_cache[key] = uid
             logger.debug(f"[TwitterGQL] resolved @{username} → {uid}")
             return uid
@@ -197,13 +205,17 @@ async def _fetch_query_ids(auth_token: str, ct0: str) -> dict[str, str]:
                 logger.error("[TwitterGQL] no JS bundle URLs found on x.com")
                 return {}
 
-            # Scan bundles for queryId:operationName pairs
+            # Scan bundles for queryId:operationName pairs (parallel fetch)
+            _QID_RE = re.compile(r'queryId:"([^"]+)",operationName:"(\w+)"')
+            bundle_resps = await asyncio.gather(
+                *(http.get(url, timeout=15) for url in js_urls[:8]),
+                return_exceptions=True,
+            )
             query_ids: dict[str, str] = {}
-            for url in js_urls[:8]:
-                js_resp = await http.get(url, timeout=15)
-                for match in re.finditer(
-                    r'queryId:"([^"]+)",operationName:"(\w+)"', js_resp.text
-                ):
+            for resp_or_exc in bundle_resps:
+                if isinstance(resp_or_exc, Exception):
+                    continue
+                for match in _QID_RE.finditer(resp_or_exc.text):
                     query_ids[match.group(2)] = match.group(1)
 
             logger.info(

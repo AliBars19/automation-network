@@ -14,13 +14,15 @@ from email.utils import parsedate_to_datetime
 from loguru import logger
 
 from src.collectors.base import BaseCollector, RawContent
-from src.collectors.twscrape_pool import get_api, resolve_user_id
+from src.collectors.twscrape_pool import OP_USER_TWEETS, get_api, resolve_user_id
 
 # content_type per niche for monitored account tweets
 _CONTENT_TYPE: dict[str, str] = {
     "rocketleague": "official_tweet",
     "geometrydash": "robtop_tweet",
 }
+
+_TRAILING_TCO_RE = re.compile(r"\s*https://t\.co/\w+\s*$")
 
 _USER_TWEETS_FEATURES = {
     "responsive_web_graphql_exclude_directive_enabled": True,
@@ -61,7 +63,7 @@ class TwitterMonitorCollector(BaseCollector):
 
         try:
             data = await client.gql_get(
-                "UserTweets",
+                OP_USER_TWEETS,
                 {
                     "userId": str(user_id),
                     "count": 20,
@@ -140,8 +142,7 @@ class TwitterMonitorCollector(BaseCollector):
                 if short and expanded:
                     clean_text = clean_text.replace(short, expanded)
 
-            # Remove trailing t.co media links
-            clean_text = re.sub(r"\s*https://t\.co/\w+\s*$", "", clean_text).strip()
+            clean_text = _TRAILING_TCO_RE.sub("", clean_text).strip()
 
             items.append(
                 RawContent(
@@ -174,21 +175,17 @@ def _extract_tweets(data: dict) -> list[dict]:
     """Walk the GraphQL response tree to find tweet result objects."""
     tweets: list[dict] = []
     seen: set[str] = set()
-    _walk(data, tweets, seen)
+    stack: list = [data]
+    while stack:
+        obj = stack.pop()
+        if isinstance(obj, dict):
+            legacy = obj.get("legacy")
+            if isinstance(legacy, dict) and "full_text" in legacy:
+                tid = legacy.get("id_str", "")
+                if tid and tid not in seen:
+                    seen.add(tid)
+                    tweets.append(obj)
+            stack.extend(obj.values())
+        elif isinstance(obj, list):
+            stack.extend(obj)
     return tweets
-
-
-def _walk(obj, tweets: list[dict], seen: set[str]) -> None:
-    """Recursively find tweet objects with a legacy.full_text field."""
-    if isinstance(obj, dict):
-        legacy = obj.get("legacy")
-        if isinstance(legacy, dict) and "full_text" in legacy:
-            tid = legacy.get("id_str", "")
-            if tid and tid not in seen:
-                seen.add(tid)
-                tweets.append(obj)
-        for v in obj.values():
-            _walk(v, tweets, seen)
-    elif isinstance(obj, list):
-        for item in obj:
-            _walk(item, tweets, seen)
