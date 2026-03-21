@@ -85,8 +85,34 @@ def _dest_path(url: str) -> Path:
     return MEDIA_DIR / f"{url_hash}.jpg"
 
 
+def _is_safe_url(url: str) -> bool:
+    """Reject URLs targeting private/link-local IPs (SSRF prevention)."""
+    import ipaddress
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname or ""
+        if host in ("169.254.169.254", "metadata.google.internal"):
+            return False
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_link_local or addr.is_loopback:
+                return False
+        except ValueError:
+            pass
+        return True
+    except Exception:
+        return False
+
+
 def _download(url: str) -> bytes | None:
     """Download raw bytes from URL. Returns None on failure."""
+    if not _is_safe_url(url):
+        logger.warning(f"[Media] blocked unsafe URL: {url[:80]}")
+        return None
     try:
         with httpx.Client(timeout=20, follow_redirects=True) as client:
             resp = client.get(

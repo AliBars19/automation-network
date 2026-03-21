@@ -19,7 +19,7 @@ from pathlib import Path
 from src.collectors.base import BaseCollector, RawContent
 
 _HISTORY_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "rl_history.yaml"
-_OCTANE_BASE  = "http://zsr.octane.gg"
+_OCTANE_BASE  = "https://zsr.octane.gg"
 _TIMEOUT      = 15
 
 

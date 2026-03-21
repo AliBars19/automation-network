@@ -171,6 +171,9 @@ def post_next(niche: str, client: TwitterClient) -> bool:
         # Dispatch: retweet signal vs normal tweet
         if text.startswith("RETWEET:"):
             original_id = text.split(":", 1)[1].strip()
+            if not original_id.isdigit():
+                mark_failed(conn, queue_id, f"invalid retweet ID: {original_id!r}")
+                return False
             success = client.retweet(original_id)
             if success:
                 mark_posted(conn, queue_id, original_id)
