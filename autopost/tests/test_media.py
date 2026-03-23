@@ -243,6 +243,7 @@ class TestDownload:
             mock_response = MagicMock()
             mock_response.raise_for_status = MagicMock()
             mock_response.content = b"image data"
+            mock_response.is_redirect = False
             mock_client.get.return_value = mock_response
             mock_client_cls.return_value = mock_client
 

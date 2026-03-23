@@ -216,12 +216,16 @@ def skip_stale(niche: str, max_age_hours: int = 6) -> int:
     Mark old queued tweets as skipped so they don't clog the queue.
     Returns count of rows skipped.
     """
+    from datetime import datetime, timezone, timedelta
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
     with get_db() as conn:
         rows = conn.execute(
             """SELECT id FROM tweet_queue
                WHERE niche = ? AND status = 'queued'
-                 AND created_at <= datetime('now', ? || ' hours')""",
-            (niche, f"-{max_age_hours}"),
+                 AND created_at <= ?""",
+            (niche, cutoff),
         ).fetchall()
         for row in rows:
             mark_skipped(conn, row["id"])

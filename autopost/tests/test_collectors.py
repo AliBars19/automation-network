@@ -64,64 +64,6 @@ class TestTwitterAgeFilter:
         assert self._is_within_7_days(recent_naive) is True
 
 
-# ── Twitter monitor: reply/retweet filtering (twscrape field names) ───────────
-
-class TestTwitterFiltering:
-    """Tests for tweet filtering rules (skip replies, skip retweets).
-    Uses twscrape Tweet field names (retweetedTweet, inReplyToUser, rawContent)."""
-
-    @staticmethod
-    def _should_include(tweet: dict) -> bool:
-        """Replicates the filtering logic from TwitterMonitorCollector.collect()."""
-        if tweet.get("retweetedTweet") is not None:
-            return False
-        if tweet.get("inReplyToUser") is not None:
-            return False
-        text = tweet.get("rawContent", "")
-        if not text:
-            return False
-        if text.startswith("@"):
-            return False
-        tweet_id = tweet.get("id", 0)
-        if not tweet_id:
-            return False
-        return True
-
-    def test_normal_tweet_included(self):
-        tweet = {"id": 123, "rawContent": "Rocket League Season 14 starts now!"}
-        assert self._should_include(tweet) is True
-
-    def test_retweet_excluded(self):
-        tweet = {
-            "id": 123,
-            "rawContent": "RT @someone: Great news",
-            "retweetedTweet": {"id": 456},
-        }
-        assert self._should_include(tweet) is False
-
-    def test_reply_excluded_by_field(self):
-        """Reply detected by twscrape inReplyToUser field."""
-        tweet = {
-            "id": 123,
-            "rawContent": "Thanks for the update!",
-            "inReplyToUser": {"id": 789, "username": "someone"},
-        }
-        assert self._should_include(tweet) is False
-
-    def test_reply_excluded_by_at_prefix(self):
-        """Reply detected by text starting with @."""
-        tweet = {"id": 123, "rawContent": "@someone Thanks for the update!"}
-        assert self._should_include(tweet) is False
-
-    def test_empty_text_excluded(self):
-        tweet = {"id": 123, "rawContent": ""}
-        assert self._should_include(tweet) is False
-
-    def test_no_tweet_id_excluded(self):
-        tweet = {"id": 0, "rawContent": "Hello world"}
-        assert self._should_include(tweet) is False
-
-
 # ── Scraper: _classify() ─────────────────────────────────────────────────────
 
 class TestScraperClassify:

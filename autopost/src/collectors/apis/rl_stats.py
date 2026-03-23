@@ -29,15 +29,6 @@ _STAT_CATEGORIES = [
     ("score",   "total score"),
 ]
 
-# Only generate milestones for round numbers above these thresholds
-_MILESTONE_THRESHOLDS = {
-    "goals":   500,
-    "assists": 300,
-    "saves":   300,
-    "shots":   1000,
-    "score":   50000,
-}
-
 
 class RLStatsCollector(BaseCollector):
     """Fetches all-time stat leaders from Octane ZSR and generates milestone tweets."""

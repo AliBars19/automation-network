@@ -114,14 +114,14 @@ async def _run_collector(
                 await _alert(
                     f"**Source auto-disabled**: `{source_name}` [{niche}]\n"
                     f"Failed {error_count}× in {_ERROR_WINDOW_H}h — re-enable via DB.\n"
-                    f"Last error: `{str(exc)[:300]}`",
+                    f"Last error: `{_sanitize_exc(exc)}`",
                     level="error",
                 )
             elif error_count == _ALERT_THRESHOLD:
                 await _alert(
                     f"**Source degraded**: `{source_name}` [{niche}]\n"
                     f"Failed {error_count}× in the last {_ERROR_WINDOW_H}h.\n"
-                    f"Last error: `{str(exc)[:300]}`",
+                    f"Last error: `{_sanitize_exc(exc)}`",
                     level="warning",
                 )
 
@@ -156,6 +156,15 @@ def _run_db_cleanup() -> None:
         )
     else:
         logger.debug("[Scheduler] DB cleanup → nothing to remove")
+
+
+import re as _re
+_ALERT_SANITIZE_RE = _re.compile(r"(?:key|token|secret|auth_token|api_key)=[^&\s\"']{4,}", _re.I)
+
+
+def _sanitize_exc(exc: Exception) -> str:
+    """Strip API keys/tokens from exception messages before sending to Discord."""
+    return _ALERT_SANITIZE_RE.sub("[REDACTED]", str(exc)[:300])
 
 
 async def _alert(msg: str, level: str = "error") -> None:

@@ -13,6 +13,10 @@ import httpx
 from loguru import logger
 from PIL import Image
 
+# Explicitly cap decompression bomb protection — 50 megapixels is generous
+# for any legitimate thumbnail; default Pillow cap is ~179 MP.
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
 from config.settings import MEDIA_DIR
 
 # Target dimensions for Twitter card image (16:9)
@@ -114,11 +118,23 @@ def _download(url: str) -> bytes | None:
         logger.warning(f"[Media] blocked unsafe URL: {url[:80]}")
         return None
     try:
-        with httpx.Client(timeout=20, follow_redirects=True) as client:
-            resp = client.get(
-                url,
-                headers={"User-Agent": "AutoPost/1.0 (image downloader)"},
-            )
+        # follow_redirects=False prevents SSRF via open-redirect chains.
+        # We handle redirects manually so every hop is re-validated.
+        with httpx.Client(timeout=20, follow_redirects=False) as client:
+            current_url = url
+            for _ in range(5):  # max 5 hops
+                resp = client.get(
+                    current_url,
+                    headers={"User-Agent": "AutoPost/1.0 (image downloader)"},
+                )
+                if resp.is_redirect:
+                    next_url = resp.headers.get("location", "")
+                    if not _is_safe_url(next_url):
+                        logger.warning(f"[Media] blocked unsafe redirect: {next_url[:80]}")
+                        return None
+                    current_url = next_url
+                    continue
+                break
             resp.raise_for_status()
 
         if len(resp.content) > MAX_BYTES:

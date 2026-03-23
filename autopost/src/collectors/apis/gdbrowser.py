@@ -18,7 +18,9 @@ from src.collectors.base import BaseCollector, RawContent
 
 _GDBROWSER_URL = "https://gdbrowser.com/api"
 _OFFICIAL_URL = "http://www.boomlings.com/database"
-_GD_SECRET = "Wmfd2893gb7"
+# Public GD game-client protocol value — not a private credential.
+# Required by the official GD server API; same value used by the GD game itself.
+_GD_PROTOCOL_SECRET = "Wmfd2893gb7"
 _TIMEOUT = 15
 
 # ── Notable creators ────────────────────────────────────────────────────────
@@ -194,7 +196,7 @@ async def _fetch_daily_official(
     try:
         resp = await client.post(
             f"{_OFFICIAL_URL}/getGJDailyLevel.php",
-            data={"secret": _GD_SECRET},
+            data={"secret": _GD_PROTOCOL_SECRET},
             headers={"Content-Type": "application/x-www-form-urlencoded",
                      "User-Agent": ""},
         )
@@ -217,7 +219,7 @@ async def _fetch_weekly_official(
     try:
         resp = await client.post(
             f"{_OFFICIAL_URL}/getGJDailyLevel.php",
-            data={"secret": _GD_SECRET, "weekly": "1"},
+            data={"secret": _GD_PROTOCOL_SECRET, "weekly": "1"},
             headers={"Content-Type": "application/x-www-form-urlencoded",
                      "User-Agent": ""},
         )
@@ -241,7 +243,7 @@ async def _download_level_official(
     """Download level details from official GD servers and convert to RawContent."""
     resp = await client.post(
         f"{_OFFICIAL_URL}/downloadGJLevel22.php",
-        data={"secret": _GD_SECRET, "levelID": level_id},
+        data={"secret": _GD_PROTOCOL_SECRET, "levelID": level_id},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     resp.raise_for_status()

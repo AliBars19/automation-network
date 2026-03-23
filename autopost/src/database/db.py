@@ -180,10 +180,10 @@ def mark_skipped(conn: sqlite3.Connection, queue_id: int) -> None:
 # ── Source health tracking ─────────────────────────────────────────────────────
 
 def record_source_error(conn: sqlite3.Connection, source_id: int, error_msg: str) -> None:
-    """Log a collector failure for a source."""
+    """Log a collector failure for a source. API keys are stripped before storage."""
     conn.execute(
         "INSERT INTO source_errors (source_id, error_msg) VALUES (?, ?)",
-        (source_id, error_msg[:500]),
+        (source_id, _sanitize_error(error_msg)[:500]),
     )
 
 
@@ -287,6 +287,15 @@ def url_already_queued(conn: sqlite3.Connection, url: str, content_id: int) -> b
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+import re as _re
+_API_KEY_RE = _re.compile(r"(?:key|token|secret|auth_token|api_key)=[^&\s\"']{4,}", _re.I)
+
+
+def _sanitize_error(msg: str) -> str:
+    """Strip API keys and tokens that may appear in exception messages."""
+    return _API_KEY_RE.sub("[REDACTED]", msg)
+
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
