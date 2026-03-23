@@ -12,7 +12,7 @@ sources:
     url: https://store.steampowered.com/feeds/news/app/252950
     poll_interval: 1800         # 30 min
 
-  # ── Official X / Twitter accounts ───────────────────────────────────────────
+  # ── Official X / Twitter accounts (retweet: true) ─────────────────────────────
 
   - name: "@RocketLeague"
     type: twitter
@@ -29,256 +29,68 @@ sources:
   - name: "@PsyonixStudios"
     type: twitter
     account_id: PsyonixStudios
-    poll_interval: 300          # official developer studio account
+    poll_interval: 300
     retweet: true
 
   - name: "@RLCS"
     type: twitter
     account_id: RLCS
-    poll_interval: 300          # official RLCS competitive series
+    poll_interval: 300
     retweet: true
-
-  - name: "@ShiftRLE"
-    type: twitter
-    account_id: ShiftRLE
-    poll_interval: 300          # #1 RL esports news/intel source — breaks roster moves, results
-
-  - name: "@ApparentlyJxck"
-    type: twitter
-    account_id: ApparentlyJxck
-    poll_interval: 600          # top pro player, frequent competitive tweets
-
-  - name: "@Flakes_RL"
-    type: twitter
-    account_id: Flakes_RL
-    poll_interval: 600          # popular pro/content creator
-
-  # ── Community / creator X accounts ─────────────────────────────────────────
-
-  - name: "@Johnnyboi_i"
-    type: twitter
-    account_id: Johnnyboi_i
-    poll_interval: 600          # caster, 1v1 tournament organizer, 100K followers
-
-  - name: "@SquishyMuffinz"
-    type: twitter
-    account_id: SquishyMuffinz
-    poll_interval: 600          # pro/creator, 5x Major LAN Champion, 248K followers
-
-  - name: "@GarrettG"
-    type: twitter
-    account_id: GarrettG
-    poll_interval: 900          # retired pro, NRG creator, 180K followers
 
   - name: "@RL_Status"
     type: twitter
     account_id: RL_Status
-    poll_interval: 600          # server status, maintenance, bug reports — 129K followers
+    poll_interval: 600
     retweet: true
 
-  # ── Pro players ───────────────────────────────────────────────────────────────
+  # ── News / intel accounts (monitored — formatted as news, not retweeted) ────
 
-  - name: "@zenrll"
+  - name: "@ShiftRLE"
     type: twitter
-    account_id: zenrll
-    poll_interval: 300          # zen — Vitality, 2025 World Champion, best player in the world
-
-  - name: "@Firstkiller"
-    type: twitter
-    account_id: Firstkiller
-    poll_interval: 300          # Firstkiller — Shopify Rebellion, top NA mechanical player
-
-  - name: "@Vatira5"
-    type: twitter
-    account_id: Vatira5
-    poll_interval: 300          # Vatira — Karmine Corp IGL, 3x Major Champion
-
-  - name: "@BeastModeLK"
-    type: twitter
-    account_id: BeastModeLK
-    poll_interval: 300          # BeastMode — NRG, 2025 World Champion, NA MVP
-
-  - name: "@DanielRL__"
-    type: twitter
-    account_id: DanielRL__
-    poll_interval: 600          # Daniel — NRG, 2025 World Champion
-
-  - name: "@At0micRL"
-    type: twitter
-    account_id: At0micRL
-    poll_interval: 600          # Atomic — NRG, 2025 World Champion
-
-  - name: "@M0nkeyM00n"
-    type: twitter
-    account_id: M0nkeyM00n
-    poll_interval: 300          # M0nkey M00n — 2x World Champion, first to earn $1M+
-
-  - name: "@Joyokamii"
-    type: twitter
-    account_id: Joyokamii
-    poll_interval: 600          # Joyo — OXG, top EU pro
-
-  - name: "@seikoo"
-    type: twitter
-    account_id: seikoo
-    poll_interval: 600          # Seikoo — former BDS, World Champion
-
-  - name: "@yanxnz"
-    type: twitter
-    account_id: yanxnz
-    poll_interval: 600          # yanxnz — FURIA, top SAM player
-
-  - name: "@Rw9_rl"
-    type: twitter
-    account_id: Rw9_rl
-    poll_interval: 300          # Rw9 — Team Falcons, MENA legend
-
-  - name: "@kiileerrz"
-    type: twitter
-    account_id: kiileerrz
-    poll_interval: 600          # Kiileerrz — Team Falcons, Raleigh Major Champion
-
-  - name: "@dralii897"
-    type: twitter
-    account_id: dralii897
-    poll_interval: 600          # dralii — Team Falcons, Esports World Cup MVP
-
-  - name: "@exotiikrl"
-    type: twitter
-    account_id: exotiikrl
-    poll_interval: 600          # ExoTiiK — Vitality, 2024 World Champion
-
-  - name: "@Joreuz"
-    type: twitter
-    account_id: Joreuz
-    poll_interval: 600          # Joreuz — NIP, top EU mechanical player
-
-  - name: "@riseRL_"
-    type: twitter
-    account_id: riseRL_
-    poll_interval: 600          # rise — Gen.G, experienced NA pro
-
-  - name: "@Its_JSTN"
-    type: twitter
-    account_id: Its_JSTN
-    poll_interval: 600          # jstn — Gen.G, "THIS IS ROCKET LEAGUE" fame
-
-  - name: "@RL_Comm"
-    type: twitter
-    account_id: RL_Comm
-    poll_interval: 600          # Comm — active NA pro
-
-  # ── Casters / analysts / broadcast ──────────────────────────────────────────
-
-  - name: "@CallumTheShogun"
-    type: twitter
-    account_id: CallumTheShogun
-    poll_interval: 900          # Shogun — iconic RLCS caster
-
-  - name: "@JorbyPls"
-    type: twitter
-    account_id: JorbyPls
-    poll_interval: 900          # Jorby — RLCS caster
-
-  - name: "@Gibbs0o0"
-    type: twitter
-    account_id: Gibbs0o0
-    poll_interval: 900          # Gibbs — RLCS analyst
-
-  - name: "@StumpyGoblin"
-    type: twitter
-    account_id: StumpyGoblin
-    poll_interval: 900          # Stumpy — RLCS caster
-
-  - name: "@LemonKiwi_"
-    type: twitter
-    account_id: LemonKiwi_
-    poll_interval: 900          # LemonKiwi — RLCS caster/analyst
-
-  - name: "@Liefx"
-    type: twitter
-    account_id: Liefx
-    poll_interval: 900          # Liefx — RLCS host/reporter
-
-  - name: "@AchievesTV"
-    type: twitter
-    account_id: AchievesTV
-    poll_interval: 900          # Achieves — RLCS caster
-
-  # ── Content creators ────────────────────────────────────────────────────────
-
-  - name: "@SunlessKhan"
-    type: twitter
-    account_id: SunlessKhan
-    poll_interval: 600          # SunlessKhan — top RL content creator, 2M+ YouTube subs
-
-  - name: "@amustycow"
-    type: twitter
-    account_id: amustycow
-    poll_interval: 600          # Musty — invented the Musty Flick, 3.2M YouTube subs
-
-  - name: "@Lethamyr_RL"
-    type: twitter
-    account_id: Lethamyr_RL
-    poll_interval: 600          # Lethamyr — custom maps, competitive analysis
-
-  - name: "@AlphaKep"
-    type: twitter
-    account_id: AlphaKep
-    poll_interval: 900          # AlphaKep — pro player/streamer
-
-  - name: "@WaytonPilkin"
-    type: twitter
-    account_id: WaytonPilkin
-    poll_interval: 900          # Wayton Pilkin — RL content creator
-
-  - name: "@Rizzo_TV"
-    type: twitter
-    account_id: Rizzo_TV
-    poll_interval: 900          # Rizzo — retired pro turned content creator/caster
-
-  # ── News / community accounts ───────────────────────────────────────────────
+    account_id: ShiftRLE
+    poll_interval: 300          # #1 RL esports news/intel source
 
   - name: "@LiquipediaRL"
     type: twitter
     account_id: LiquipediaRL
-    poll_interval: 300          # Liquipedia RL — real-time tournament results, roster moves
+    poll_interval: 300          # real-time tournament results, roster moves
 
   - name: "@RocketBaguette"
     type: twitter
     account_id: RocketBaguette
-    poll_interval: 600          # Rocket Baguette — French RL esports news, breaks EU roster moves
+    poll_interval: 600          # French RL esports news, EU roster moves
 
   - name: "@octane_gg"
     type: twitter
     account_id: octane_gg
-    poll_interval: 600          # Octane.gg — RL esports stats and match results
+    poll_interval: 600          # RL esports stats and match results
 
   # ── Esports data APIs ────────────────────────────────────────────────────────
 
   - name: RL Flashbacks
     type: api
     collector: flashback
-    poll_interval: 86400        # once per day — "on this day" historical content
+    poll_interval: 86400        # once per day
 
   - name: RL Stat Milestones
     type: api
     collector: rl_stats
-    poll_interval: 604800       # once per week — all-time stat leaderboard tweets
+    poll_interval: 604800       # once per week
 
   # ── News / coverage RSS ─────────────────────────────────────────────────────
 
   - name: Shift RLE Articles
     type: rss
     url: https://shiftrle.gg/feed/
-    poll_interval: 900          # 15 min — full roster move/RLCS articles (supplements @ShiftRLE)
+    poll_interval: 900          # 15 min
 
-  # ── News / coverage sites ────────────────────────────────────────────────────
+  # ── News / coverage sites ──────────────────────────────────────────────────
 
   - name: BLAST.tv RL News
     type: scraper
     url: https://blast.tv/rl/news
-    poll_interval: 900          # 15 min — tournament news + results
+    poll_interval: 900
 
   - name: ONE Esports RL
     type: scraper
@@ -288,29 +100,29 @@ sources:
   - name: Dexerto RL
     type: scraper
     url: https://www.dexerto.com/rocket-league/
-    poll_interval: 3600         # 1 hr — major gaming news outlet
+    poll_interval: 3600
 
   - name: The Loadout RL
     type: scraper
     url: https://www.theloadout.com/rocket-league
-    poll_interval: 3600         # 1 hr — RL guides and patch coverage
+    poll_interval: 3600
 
   # ── YouTube ──────────────────────────────────────────────────────────────────
 
   - name: YouTube — RLEsports Official
     type: youtube
     channel_id: UCdKuPY64fEpI4cdlBSyvEJw
-    poll_interval: 1800         # highlights, interviews, event clips
+    poll_interval: 1800
 
   - name: YouTube — SunlessKhan
     type: youtube
     channel_id: UCocHtA1ADT6kTObipYzJoww
-    poll_interval: 1800         # patch analysis, news coverage, top channel
+    poll_interval: 1800
 
   - name: YouTube — Lethamyr
     type: youtube
     channel_id: UCkNYoWK1LqjFhxYI6BM_kOA
-    poll_interval: 1800         # daily uploads, competitive analysis
+    poll_interval: 1800
 
   - name: YouTube — Musty (amustycow)
     type: youtube
@@ -320,39 +132,39 @@ sources:
   - name: YouTube — Wayton Pilkin
     type: youtube
     channel_id: UCeg2dFpnarFPI14hbN_5rKg
-    poll_interval: 1800         # popular RL content creator and competitive player
+    poll_interval: 1800
 
   - name: YouTube — ApparentlyJack
     type: youtube
     channel_id: UCRi4YlWuLFCucOx_rk-ddsg
-    poll_interval: 1800         # top pro, competitive analysis
+    poll_interval: 1800
 
   - name: YouTube — Flakes
     type: youtube
     channel_id: UCP9dqlEktObJ-ji-JOdGQhQ
-    poll_interval: 3600         # pro player content, 1v1 specialist
+    poll_interval: 3600
 
   - name: YouTube — JohnnyBoi_i
     type: youtube
     channel_id: UCldqb1GljWZzaRVtYXfvlAg
-    poll_interval: 1800         # 1v1 showmatches, tournament coverage, 5-6 vids/week
+    poll_interval: 1800
 
   - name: YouTube — SquishyMuffinz
     type: youtube
     channel_id: UC1JPEwMqLaI96qRUKNp3_ow
-    poll_interval: 1800         # gameplay challenges, tutorials, 1.4M subs
+    poll_interval: 1800
 
   - name: YouTube — ArsenalRL
     type: youtube
     channel_id: UCuRS9KcqyOamnYjd6zOKiFQ
-    poll_interval: 1800         # daily streams, Top 100 SSL ranked content
+    poll_interval: 1800
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
-  min_interval_seconds: 1200   # 20 min minimum between posts
-  max_interval_seconds: 3600   # 60 min maximum
+  min_interval_seconds: 1200
+  max_interval_seconds: 3600
   max_daily_posts: 15
-  breaking_news_override: true  # high-priority items skip the queue
+  breaking_news_override: true
 
 # ── Hashtags by content type ───────────────────────────────────────────────────
 hashtags:

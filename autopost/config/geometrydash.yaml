@@ -5,58 +5,43 @@ account:
 # ── Content sources ────────────────────────────────────────────────────────────
 sources:
 
-  # ── Official X / Twitter accounts ───────────────────────────────────────────
+  # ── Official X / Twitter accounts (retweet: true) ─────────────────────────────
 
   - name: "@RobTopGames"
     type: twitter
     account_id: RobTopGames
-    poll_interval: 300          # 5 min — rare but critical
+    poll_interval: 300
     retweet: true
 
   - name: "@_GeometryDash"
     type: twitter
     account_id: _GeometryDash
-    poll_interval: 300          # official GD account
+    poll_interval: 300
     retweet: true
+
+  - name: "@demonlistgd"
+    type: twitter
+    account_id: demonlistgd
+    poll_interval: 600
+    retweet: true
+
+  - name: "@geode_sdk"
+    type: twitter
+    account_id: geode_sdk
+    poll_interval: 600
+    retweet: true
+
+  # ── News / intel accounts (monitored — formatted as news, not retweeted) ────
 
   - name: "@today_gd"
     type: twitter
     account_id: today_gd
     poll_interval: 300          # very active daily GD news account
 
-  - name: "@demonlistgd"
-    type: twitter
-    account_id: demonlistgd
-    poll_interval: 600          # Pointercrate demon list official updates
-    retweet: true
-
-  - name: "@geode_sdk"
-    type: twitter
-    account_id: geode_sdk
-    poll_interval: 600          # official Geode mod framework account — releases and updates
-    retweet: true
-
-  - name: "@GDW_ORG"
-    type: twitter
-    account_id: GDW_ORG
-    poll_interval: 900          # Geometry Dash World — level showcases and community news
-
-  - name: "@vipringd"
-    type: twitter
-    account_id: vipringd
-    poll_interval: 600          # Viprin — elder moderator, hosts official community events
-
-  - name: "@zNpesta__"
-    type: twitter
-    account_id: zNpesta__
-    poll_interval: 600          # npesta — iconic player, verification news, very active
-
-  # ── Community news / creator X accounts ────────────────────────────────────
-
   - name: "@DashwordGD"
     type: twitter
     account_id: DashwordGD
-    poll_interval: 600          # #1 GD community news outlet — demon completions, updates, events
+    poll_interval: 600          # #1 GD community news outlet
 
   - name: "@DemonListNews"
     type: twitter
@@ -66,137 +51,24 @@ sources:
   - name: "@demonlistorg"
     type: twitter
     account_id: demonlistorg
-    poll_interval: 600          # Global Demonlist official — ranking changes, new #1 demons
-
-  - name: "@TechnicalJL"
-    type: twitter
-    account_id: TechnicalJL
-    poll_interval: 600          # top extreme demon player, just beat Acheron (March 2026)
-
-  # ── Top players (live completion announcements) ────────────────────────────
-
-  - name: "@gdzoink"
-    type: twitter
-    account_id: gdzoink
-    poll_interval: 300          # Zoink — #1 Pointercrate, verified Thinking Space II, BLOOP
-
-  - name: "@GmdTrick"
-    type: twitter
-    account_id: GmdTrick
-    poll_interval: 300          # trick — former #1 Pointercrate, first victor of KOCMOC/Tidal Wave
-
-  - name: "@DiamondGD_"
-    type: twitter
-    account_id: DiamondGD_
-    poll_interval: 300          # Diamond — first victor of VSC, top 5 player
-
-  - name: "@DasherDoggie"
-    type: twitter
-    account_id: DasherDoggie
-    poll_interval: 300          # Doggie — top extreme demon player
-
-  - name: "@Netrimer"
-    type: twitter
-    account_id: Netrimer
-    poll_interval: 300          # Netermind — #2 Pointercrate stats, top completions
-
-  # ── Additional top players ─────────────────────────────────────────────────
-
-  - name: "@SakupenCircles"
-    type: twitter
-    account_id: SakupenCircles
-    poll_interval: 300          # Cursed — verified Abyss of Darkness, Subsuming Vortex
-
-  - name: "@WpopoffW"
-    type: twitter
-    account_id: WpopoffW
-    poll_interval: 300          # wPopoff — verified Amethyst (Top 1), top player
-
-  - name: "@spaceukGD"
-    type: twitter
-    account_id: spaceukGD
-    poll_interval: 600          # SpaceUK — #1 on Pointercrate, Twitch partner
-
-  # ── Content creators (Twitter accounts) ──────────────────────────────────
-
-  - name: "@TheRealGDColon"
-    type: twitter
-    account_id: TheRealGDColon
-    poll_interval: 600          # GD Colon — created GDBrowser, top GD content creator
-
-  - name: "@VanWilderman"
-    type: twitter
-    account_id: VanWilderman
-    poll_interval: 600          # EricVanWilderman — 1M+ YouTube subs, beat Sonic Wave
-
-  - name: "@1wulz"
-    type: twitter
-    account_id: 1wulz
-    poll_interval: 600          # Wulzy — popular GD content creator
-
-  - name: "@gdtrusta"
-    type: twitter
-    account_id: gdtrusta
-    poll_interval: 600          # TrusTa — Swedish player/creator, Galaxy Collapse creator
-
-  - name: "@JuniperGD"
-    type: twitter
-    account_id: JuniperGD
-    poll_interval: 900          # Juniper — GD moderator, YouTuber, Twitch partner
-
-  - name: "@NexusGMD"
-    type: twitter
-    account_id: NexusGMD
-    poll_interval: 900          # Nexus — popular GD player/YouTuber, 1M+ subs
-
-  - name: "@audieovisual"
-    type: twitter
-    account_id: audieovisual
-    poll_interval: 900          # AudieoVisual — GD animator, event level art
-
-  # ── Community / news accounts ────────────────────────────────────────────
-
-  - name: "@today_gd1"
-    type: twitter
-    account_id: today_gd1
-    poll_interval: 300          # GD Today backup — posts when main account is limited
+    poll_interval: 600          # Global Demonlist official — ranking changes
 
   - name: "@StatsGd"
     type: twitter
     account_id: StatsGd
     poll_interval: 600          # GD Stats — player rankings, country leaderboards
 
-  - name: "@DashCup"
-    type: twitter
-    account_id: DashCup
-    poll_interval: 900          # GD E-Sports — competitive GD scene
-
-  - name: "@GD_Loops"
-    type: twitter
-    account_id: GD_Loops
-    poll_interval: 900          # GD Loops — curated GD content, community art
-
-  - name: "@DDOGDASH"
-    type: twitter
-    account_id: DDOGDASH
-    poll_interval: 900          # Daily Dose of GD — daily community content
-
-  - name: "@GDDiscord"
-    type: twitter
-    account_id: GDDiscord
-    poll_interval: 900          # Official GD Discord community account
-
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)
     type: rss
     url: https://store.steampowered.com/feeds/news/app/322170
-    poll_interval: 1800         # 30 min — official patch notes on Steam
+    poll_interval: 1800
 
   - name: RobTop Games Website
     type: scraper
     url: https://www.robtopgames.com/
-    poll_interval: 3600         # 1 hr — developer blog posts
+    poll_interval: 3600
 
   # ── Demon list / level tracking APIs ────────────────────────────────────────
 
@@ -204,52 +76,30 @@ sources:
     type: api
     collector: pointercrate
     base_url: https://pointercrate.com/api/v2
-    poll_interval: 600          # 10 min — the primary demon list
+    poll_interval: 600
 
-  # AREDL — disabled: SPA (React), no server-rendered HTML for scraping
-  # - name: AREDL (All Rated Extreme Demons)
-  #   type: scraper
-  #   url: https://aredl.net/
-  #   poll_interval: 900
-
-  # GDDP — disabled: SPA (Next.js), no server-rendered HTML for scraping
-  # - name: GDDP (GD Demon Progression)
-  #   type: scraper
-  #   url: https://gddp.pro/
-  #   poll_interval: 1800
-
-  # ── Level data API ───────────────────────────────────────────────────────────
+  # ── Level data API ─────────────────────────────────────────────────────────
 
   - name: GDBrowser
     type: api
     collector: gdbrowser
     base_url: https://gdbrowser.com/api
-    poll_interval: 900          # 15 min — daily level, weekly demon, rated levels
+    poll_interval: 900
 
-  # ── News / coverage sites ────────────────────────────────────────────────────
-
-  # Dashword.net, Challenge List, GD Forum News — removed (very low content yield)
-
-  # ── Mod / developer ecosystem ────────────────────────────────────────────────
+  # ── Mod / developer ecosystem ──────────────────────────────────────────────
 
   - name: Geode Mods Catalog
     type: scraper
     url: https://geode-sdk.org/mods
-    poll_interval: 1800         # 30 min — new and updated mods
+    poll_interval: 1800
 
   - name: Geode SDK (GitHub releases)
     type: api
     collector: github
     repo: geode-sdk/geode
-    poll_interval: 3600         # 60 min
+    poll_interval: 3600
 
-  # Speedrun.com — disabled: Cloudflare challenge blocks server-side requests
-  # - name: Speedrun.com — GD
-  #   type: scraper
-  #   url: https://www.speedrun.com/gmd
-  #   poll_interval: 3600
-
-  # ── YouTube channels ─────────────────────────────────────────────────────────
+  # ── YouTube channels ───────────────────────────────────────────────────────
 
   - name: GD YouTube — EVW
     type: youtube
@@ -269,17 +119,17 @@ sources:
   - name: GD YouTube — Nexus
     type: youtube
     channel_id: UCZwP1iUQiAKYQp5w-9mJb_w
-    poll_interval: 1800         # 1M+ subs, level showcases and extreme demons
+    poll_interval: 1800
 
   - name: GD YouTube — ItzBran
     type: youtube
     channel_id: UC4DmiLg94JMXUZyc3uG5kMQ
-    poll_interval: 1800         # 4M+ subs, challenges, level experimentation
+    poll_interval: 1800
 
   - name: GD YouTube — Viprin
     type: youtube
     channel_id: UCUwapObI2gw2Tovu5oj-wng
-    poll_interval: 1800         # level reviews, competitions, tutorials
+    poll_interval: 1800
 
   - name: GD YouTube — Juniper
     type: youtube
@@ -294,32 +144,32 @@ sources:
   - name: GD YouTube — Knobbelboy
     type: youtube
     channel_id: UCsjWeDDjmRcWNpBjsr3zwbg
-    poll_interval: 1800         # top-tier extreme demon player, verification videos
+    poll_interval: 1800
 
   - name: GD YouTube — Doggie
     type: youtube
     channel_id: UC3ZhM0fDxU9bqqlwWRMHwuw
-    poll_interval: 3600         # GD speedrunner, WR content
+    poll_interval: 3600
 
   - name: GD YouTube — AeonAir
     type: youtube
     channel_id: UCiYX5kJRN4y_jZTEbSEWWAw
-    poll_interval: 1800         # major GD creator, level reactions, 2M+ subs
+    poll_interval: 1800
 
   - name: GD YouTube — npesta
     type: youtube
     channel_id: UC9cqZITak5v02ciYEP1Lj-w
-    poll_interval: 1800         # iconic player, extreme demon content
+    poll_interval: 1800
 
   - name: GD YouTube — Technical
     type: youtube
     channel_id: UCP5wwq4_TAqJZHaU7_oLj4w
-    poll_interval: 1800         # top extreme demon player, very active March 2026
+    poll_interval: 1800
 
   - name: GD YouTube — Neiro
     type: youtube
     channel_id: UCCj0f5y47A94_dahjTbem-A
-    poll_interval: 1800         # 598K subs, 8 vids/week, extreme demon content
+    poll_interval: 1800
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
