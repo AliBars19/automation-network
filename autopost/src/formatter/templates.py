@@ -120,6 +120,11 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Official account tweets (retweet signal) ──────────────────────────────
     "official_tweet": [None],
+
+    # ── Monitored account tweets (non-retweet — formatted as news) ──────────
+    "monitored_tweet": [
+        "{title}\n\n{url}",
+    ],
 }
 
 
@@ -170,6 +175,11 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── RobTop tweet (retweet signal) ─────────────────────────────────────────
     "robtop_tweet": [None],
+
+    # ── Monitored account tweets (non-retweet — formatted as news) ──────────
+    "monitored_tweet": [
+        "{title}\n\n{url}",
+    ],
 
     # ── Level rated ───────────────────────────────────────────────────────────
     "level_rated": [

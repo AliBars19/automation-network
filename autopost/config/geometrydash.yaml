@@ -11,11 +11,13 @@ sources:
     type: twitter
     account_id: RobTopGames
     poll_interval: 300          # 5 min — rare but critical
+    retweet: true
 
   - name: "@_GeometryDash"
     type: twitter
     account_id: _GeometryDash
     poll_interval: 300          # official GD account
+    retweet: true
 
   - name: "@today_gd"
     type: twitter
@@ -26,11 +28,13 @@ sources:
     type: twitter
     account_id: demonlistgd
     poll_interval: 600          # Pointercrate demon list official updates
+    retweet: true
 
   - name: "@geode_sdk"
     type: twitter
     account_id: geode_sdk
     poll_interval: 600          # official Geode mod framework account — releases and updates
+    retweet: true
 
   - name: "@GDW_ORG"
     type: twitter

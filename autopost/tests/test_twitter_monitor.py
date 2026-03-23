@@ -83,10 +83,10 @@ def _wrap_in_timeline(tweets: list[dict]) -> dict:
     }
 
 
-def _make_collector(niche: str = "rocketleague", username: str = "RocketLeague"):
+def _make_collector(niche: str = "rocketleague", username: str = "RocketLeague", retweet: bool = False):
     return TwitterMonitorCollector(
         source_id=1,
-        config={"account_id": username},
+        config={"account_id": username, "retweet": retweet},
         niche=niche,
     )
 
@@ -228,10 +228,11 @@ class TestCollectFiltering:
 class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
-    async def test_fields_populated(self):
+    async def test_retweet_source_fields_populated(self):
+        """Official accounts with retweet: true get retweet content type + retweet_id."""
         tweet = _make_tweet_dict(tweet_id="42", text="Season 14 live!", screen_name="RocketLeague")
         resp = _wrap_in_timeline([tweet])
-        collector = _make_collector()
+        collector = _make_collector(retweet=True)
         p1, p2 = _patches(resp)
         with p1, p2:
             result = await collector.collect()
@@ -244,14 +245,37 @@ class TestCollectRawContentFields:
         assert item.metadata["retweet_id"] == "42"
 
     @pytest.mark.asyncio
-    async def test_gd_content_type(self):
+    async def test_non_retweet_source_gets_monitored_tweet(self):
+        """Non-official accounts (no retweet flag) get monitored_tweet type, no retweet_id."""
+        tweet = _make_tweet_dict(tweet_id="42", text="Season 14 live!", screen_name="SomePlayer")
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector(retweet=False)
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        item = result[0]
+        assert item.content_type == "monitored_tweet"
+        assert "retweet_id" not in item.metadata
+
+    @pytest.mark.asyncio
+    async def test_gd_retweet_content_type(self):
         tweet = _make_tweet_dict(text="GD 2.3 coming!")
         resp = _wrap_in_timeline([tweet])
-        collector = _make_collector(niche="geometrydash")
+        collector = _make_collector(niche="geometrydash", retweet=True)
         p1, p2 = _patches(resp)
         with p1, p2:
             result = await collector.collect()
         assert result[0].content_type == "robtop_tweet"
+
+    @pytest.mark.asyncio
+    async def test_gd_non_retweet_content_type(self):
+        tweet = _make_tweet_dict(text="GD 2.3 coming!")
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector(niche="geometrydash", retweet=False)
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        assert result[0].content_type == "monitored_tweet"
 
     @pytest.mark.asyncio
     async def test_url_expansion(self):
@@ -300,14 +324,93 @@ class TestCollectRawContentFields:
         assert len(result) == 5
 
     @pytest.mark.asyncio
-    async def test_unknown_niche_defaults_to_official_tweet(self):
+    async def test_unknown_niche_retweet_defaults_to_official_tweet(self):
+        tweet = _make_tweet_dict()
+        resp = _wrap_in_timeline([tweet])
+        collector = TwitterMonitorCollector(source_id=1, config={"account_id": "x", "retweet": True}, niche="unknown")
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        assert result[0].content_type == "official_tweet"
+
+    @pytest.mark.asyncio
+    async def test_unknown_niche_no_retweet_gets_monitored_tweet(self):
         tweet = _make_tweet_dict()
         resp = _wrap_in_timeline([tweet])
         collector = TwitterMonitorCollector(source_id=1, config={"account_id": "x"}, niche="unknown")
         p1, p2 = _patches(resp)
         with p1, p2:
             result = await collector.collect()
-        assert result[0].content_type == "official_tweet"
+        assert result[0].content_type == "monitored_tweet"
+
+
+# ── collect() — edge cases for new branching logic ───────────────────────────
+
+class TestCollectEdgeCases:
+
+    @pytest.mark.asyncio
+    async def test_unparseable_date_lets_tweet_through(self):
+        """A completely invalid created_at string should not drop the tweet."""
+        tweet = _make_tweet_dict(text="Survive bad date", created_at="not-a-real-date")
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector()
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        # Must pass through — the except branch sets pass
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_broken_extended_entities_does_not_raise(self):
+        """If extended_entities is a non-dict type, image_url should silently stay empty."""
+        tweet = _make_tweet_dict(text="Broken media")
+        # Replace extended_entities with a scalar, triggering AttributeError in .get()
+        tweet["legacy"]["extended_entities"] = "not-a-dict"
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector()
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        assert len(result) == 1
+        assert result[0].image_url == ""
+
+    @pytest.mark.asyncio
+    async def test_monitored_tweet_metadata_has_account_and_tweet_url(self):
+        """Non-retweet items must still carry account and tweet_url in metadata."""
+        tweet = _make_tweet_dict(tweet_id="77", text="Community update", screen_name="SomeGDPlayer")
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector(niche="geometrydash", retweet=False)
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        item = result[0]
+        assert item.metadata["account"] == "SomeGDPlayer"
+        assert "x.com/SomeGDPlayer/status/77" in item.metadata["tweet_url"]
+        assert "retweet_id" not in item.metadata
+
+    @pytest.mark.asyncio
+    async def test_retweet_source_metadata_has_retweet_id_equal_to_tweet_id(self):
+        """Retweet sources must set retweet_id to the tweet's own id_str."""
+        tweet = _make_tweet_dict(tweet_id="88", text="Official announcement")
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector(niche="rocketleague", retweet=True)
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        assert result[0].metadata["retweet_id"] == "88"
+
+    @pytest.mark.asyncio
+    async def test_screen_name_falls_back_to_username_when_core_absent(self):
+        """When core user_results is empty, screen_name falls back to self.username."""
+        tweet = _make_tweet_dict(tweet_id="55", text="No core block")
+        # Remove the core entirely
+        tweet["core"] = {}
+        resp = _wrap_in_timeline([tweet])
+        collector = _make_collector(username="FallbackUser")
+        p1, p2 = _patches(resp)
+        with p1, p2:
+            result = await collector.collect()
+        assert result[0].author == "FallbackUser"
 
 
 # ── _extract_tweets() ────────────────────────────────────────────────────────

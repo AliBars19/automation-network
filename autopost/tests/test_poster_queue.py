@@ -84,6 +84,23 @@ class TestPriorityMap:
     def test_default_priority_is_5(self):
         assert _DEFAULT_PRIORITY == 5
 
+    def test_monitored_tweet_priority_is_6(self):
+        """monitored_tweet must have priority 6 (below youtube_video at 5)."""
+        assert _PRIORITY["monitored_tweet"] == 6
+
+    def test_monitored_tweet_lower_priority_than_youtube_video(self):
+        """monitored_tweet posts after youtube_video."""
+        assert _PRIORITY["monitored_tweet"] > _PRIORITY["youtube_video"]
+
+    def test_monitored_tweet_lower_priority_than_official_tweet(self):
+        """monitored_tweet posts after official_tweet (p2)."""
+        assert _PRIORITY["monitored_tweet"] > _PRIORITY["official_tweet"]
+
+    def test_all_expected_content_types_present(self):
+        """Spot-check that the five changed content types are all mapped."""
+        for ct in ("official_tweet", "robtop_tweet", "monitored_tweet", "breaking_news", "top1_verified"):
+            assert ct in _PRIORITY, f"{ct} missing from _PRIORITY"
+
 
 # ── collect_and_queue() ───────────────────────────────────────────────────────
 
@@ -281,6 +298,71 @@ class TestCollectAndQueue:
 
         assert result == 0
 
+    @pytest.mark.asyncio
+    async def test_skips_item_when_url_already_queued_from_other_source(self):
+        """Cross-source URL dedup: item whose URL is already queued is skipped."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="url_dup_001",
+            niche="rocketleague",
+            content_type="breaking_news",
+            title="Duplicate URL story",
+            url="https://example.com/already-queued",
+        )
+
+        class UrlDupCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = UrlDupCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.url_already_queued", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 0
+        rows = conn.execute("SELECT * FROM tweet_queue WHERE niche = 'rocketleague'").fetchall()
+        assert len(rows) == 0
+
+    @pytest.mark.asyncio
+    async def test_monitored_tweet_queued_with_priority_6(self):
+        """monitored_tweet content type must be enqueued at priority 6."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="mt_001",
+            niche="rocketleague",
+            content_type="monitored_tweet",
+            title="Player says something",
+            url="https://x.com/player/status/1",
+        )
+
+        class MonitoredCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = MonitoredCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value="Player says something\n\nhttps://x.com/player/status/1"),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 1
+        row = conn.execute("SELECT priority FROM tweet_queue WHERE niche = 'rocketleague'").fetchone()
+        assert row["priority"] == 6
+
 
 # ── post_next() ───────────────────────────────────────────────────────────────
 
@@ -461,6 +543,56 @@ class TestPostNext:
 
         assert result is False
         client.post_tweet.assert_not_called()
+
+    def test_marks_failed_on_invalid_retweet_id(self):
+        """RETWEET: signal with a non-numeric ID must be marked failed without calling client."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="RETWEET:not-a-number", priority=2)
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        client.retweet.assert_not_called()
+        row = conn.execute("SELECT status FROM tweet_queue WHERE niche = 'rocketleague'").fetchone()
+        assert row["status"] == "failed"
+
+    def test_check_failure_alert_fires_at_threshold(self):
+        """_check_failure_alert should call send_alert exactly when count hits _BACKOFF_ALERT_N."""
+        from src.poster.queue import _check_failure_alert
+        from src.poster.rate_limiter import _BACKOFF_ALERT_N
+
+        with (
+            patch("src.poster.queue.consecutive_failure_count", return_value=_BACKOFF_ALERT_N),
+            patch("src.poster.queue.send_alert", create=True) as mock_send,
+        ):
+            # Import send_alert so the patch resolves; the function uses a local import
+            import asyncio
+
+            with patch("asyncio.get_running_loop") as mock_loop:
+                mock_task = MagicMock()
+                mock_loop.return_value.create_task = mock_task
+                _check_failure_alert("rocketleague")
+                mock_task.assert_called_once()
+
+    def test_check_failure_alert_does_not_fire_below_threshold(self):
+        """_check_failure_alert should do nothing when count is below _BACKOFF_ALERT_N."""
+        from src.poster.queue import _check_failure_alert
+        from src.poster.rate_limiter import _BACKOFF_ALERT_N
+
+        with (
+            patch("src.poster.queue.consecutive_failure_count", return_value=_BACKOFF_ALERT_N - 1),
+            patch("asyncio.get_running_loop") as mock_loop,
+        ):
+            _check_failure_alert("rocketleague")
+            mock_loop.assert_not_called()
 
 
 # ── skip_stale() ──────────────────────────────────────────────────────────────

@@ -60,6 +60,7 @@ _PRIORITY: dict[str, int] = {
     "youtube_video":       5,
     "creator_spotlight":   5,
     "speedrun_wr":         5,
+    "monitored_tweet":     6,
     "community_clip":      7,
     "flashback":           7,
     "stat_milestone":      7,

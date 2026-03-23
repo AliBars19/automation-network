@@ -16,8 +16,8 @@ from loguru import logger
 from src.collectors.base import BaseCollector, RawContent
 from src.collectors.twscrape_pool import OP_USER_TWEETS, get_api, resolve_user_id
 
-# content_type per niche for monitored account tweets
-_CONTENT_TYPE: dict[str, str] = {
+# content_type per niche for accounts explicitly marked retweet: true
+_RETWEET_CONTENT_TYPE: dict[str, str] = {
     "rocketleague": "official_tweet",
     "geometrydash": "robtop_tweet",
 }
@@ -51,6 +51,7 @@ class TwitterMonitorCollector(BaseCollector):
         super().__init__(source_id, config)
         self.niche = niche
         self.username = config["account_id"]
+        self.is_retweet_source = config.get("retweet", False)
 
     async def collect(self) -> list[RawContent]:
         client = await get_api()
@@ -79,7 +80,10 @@ class TwitterMonitorCollector(BaseCollector):
             return []
 
         tweets = _extract_tweets(data)
-        content_type = _CONTENT_TYPE.get(self.niche, "official_tweet")
+        if self.is_retweet_source:
+            content_type = _RETWEET_CONTENT_TYPE.get(self.niche, "official_tweet")
+        else:
+            content_type = "monitored_tweet"
         items: list[RawContent] = []
 
         for tweet in tweets:
@@ -144,6 +148,14 @@ class TwitterMonitorCollector(BaseCollector):
 
             clean_text = _TRAILING_TCO_RE.sub("", clean_text).strip()
 
+            meta = {
+                "account": screen_name,
+                "tweet_url": tweet_url,
+                "created_at": created_at,
+            }
+            if self.is_retweet_source:
+                meta["retweet_id"] = tweet_id
+
             items.append(
                 RawContent(
                     source_id=self.source_id,
@@ -156,12 +168,7 @@ class TwitterMonitorCollector(BaseCollector):
                     image_url=image_url,
                     author=screen_name,
                     score=0,
-                    metadata={
-                        "retweet_id": tweet_id,
-                        "account": screen_name,
-                        "tweet_url": tweet_url,
-                        "created_at": created_at,
-                    },
+                    metadata=meta,
                 )
             )
 

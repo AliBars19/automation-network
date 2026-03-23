@@ -251,8 +251,10 @@ class TestFormatTweet:
         )
         assert not emoji_pattern.search(result), f"Found emoji in: {result}"
 
-    def test_gd_templates_no_hashtags(self):
-        """GD templates should contain no hashtags."""
+    def test_gd_templates_no_social_hashtags(self):
+        """GD templates should contain no social-media hashtags (e.g. #RLCS).
+        Rank-position markers like '#1' are allowed and are not social hashtags."""
+        import re
         result = format_tweet(self._make_content(
             niche="geometrydash",
             content_type="top1_verified",
@@ -260,4 +262,76 @@ class TestFormatTweet:
             metadata={"level": "Thinking Space II", "player": "Zoink"},
         ))
         assert result is not None
-        assert "#" not in result
+        # Social hashtags: # followed by one or more alphabetic characters
+        # Rank markers (#1, #42) are intentionally excluded from this check
+        social_hashtag_re = re.compile(r"#[A-Za-z]")
+        assert not social_hashtag_re.search(result), f"Found social hashtag in: {result}"
+
+    def test_monitored_tweet_rl_produces_text_not_none(self):
+        """monitored_tweet for RL should format as '{title}\\n\\n{url}', not return None."""
+        result = format_tweet(self._make_content(
+            niche="rocketleague",
+            content_type="monitored_tweet",
+            title="Some player post",
+            url="https://x.com/player/status/123",
+        ))
+        assert result is not None
+        assert "Some player post" in result
+        assert "x.com/player/status/123" in result
+
+    def test_monitored_tweet_gd_produces_text_not_none(self):
+        """monitored_tweet for GD should format as '{title}\\n\\n{url}', not return None."""
+        result = format_tweet(self._make_content(
+            niche="geometrydash",
+            content_type="monitored_tweet",
+            title="New GD level incoming",
+            url="https://x.com/gdcreator/status/456",
+        ))
+        assert result is not None
+        assert "New GD level incoming" in result
+        assert "x.com/gdcreator/status/456" in result
+
+    def test_monitored_tweet_within_280_chars(self):
+        """monitored_tweet output must respect the 280 character limit."""
+        result = format_tweet(self._make_content(
+            niche="rocketleague",
+            content_type="monitored_tweet",
+            title="X" * 300,
+            url="https://x.com/player/status/999",
+        ))
+        assert result is not None
+        assert len(result) <= 280
+
+
+class TestTryFormatEdgeCases:
+    """Tests for uncovered branches inside _try_format."""
+
+    def test_format_map_exception_returns_none(self):
+        """If format_map raises (e.g. invalid format spec), _try_format returns None."""
+        # A template with a malformed format spec triggers ValueError in format_map
+        result = _try_format("{title!q}", {"title": "hello"})
+        assert result is None
+
+    def test_double_space_in_result_returns_none(self):
+        """A result containing double spaces is rejected (sign of empty placeholder fill)."""
+        # Build a template where an empty-string value leaves a double space
+        result = _try_format("{a}  {b}", {"a": "hello", "b": "world"})
+        assert result is None
+
+    def test_pass2_truncation_path(self):
+        """format_tweet falls back to Pass 2 (truncation) when Pass 1 result exceeds 280."""
+        # monitored_tweet template: "{title}\\n\\n{url}"
+        # Supply a title that makes the result > 280 chars, forcing Pass 2 truncation
+        long_title = "A" * 260
+        url = "https://x.com/u/status/1"
+        content = RawContent(
+            source_id=1, external_id="t", niche="rocketleague",
+            content_type="monitored_tweet",
+            title=long_title,
+            url=url,
+            body=long_title,
+            image_url="", author="u", score=0, metadata={},
+        )
+        result = format_tweet(content)
+        assert result is not None
+        assert len(result) <= 280

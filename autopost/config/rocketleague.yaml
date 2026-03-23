@@ -18,21 +18,25 @@ sources:
     type: twitter
     account_id: RocketLeague
     poll_interval: 300
+    retweet: true
 
   - name: "@RLEsports"
     type: twitter
     account_id: RLEsports
     poll_interval: 300
+    retweet: true
 
   - name: "@PsyonixStudios"
     type: twitter
     account_id: PsyonixStudios
     poll_interval: 300          # official developer studio account
+    retweet: true
 
   - name: "@RLCS"
     type: twitter
     account_id: RLCS
     poll_interval: 300          # official RLCS competitive series
+    retweet: true
 
   - name: "@ShiftRLE"
     type: twitter
@@ -70,6 +74,7 @@ sources:
     type: twitter
     account_id: RL_Status
     poll_interval: 600          # server status, maintenance, bug reports — 129K followers
+    retweet: true
 
   # ── Pro players ───────────────────────────────────────────────────────────────
 
