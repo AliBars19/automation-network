@@ -152,24 +152,23 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Top 1 verified (biggest news in GD -- only type that gets BREAKING) ──
     "top1_verified": [
-        "BREAKING: \"{level}\" has been verified by {player}. New No. 1 on the Demon List.\n\n{details}",
-        "\"{level}\" has been verified by {player} -- the new No. 1 on the Demon List.\n\n{url}",
-        "{player} has verified \"{level}\", now the hardest rated level in Geometry Dash.\n\n{details}",
+        "BREAKING: \"{level}\" has been verified by {player}. New No. 1 on the Demon List.",
+        "BREAKING: {player} has verified \"{level}\" after {attempts} attempts. New No. 1 on the Demon List.",
+        "{player} has verified \"{level}\", now the hardest rated level in Geometry Dash.",
     ],
 
     # ── Level verified ────────────────────────────────────────────────────────
     "level_verified": [
-        "\"{level}\" has been verified by {player}. No. {position} on the Demon List.\n\n{url}",
-        "{player} has verified \"{level}\" (No. {position} on the Demon List).\n\n{details}",
+        "{player} has verified \"{level}\". No. {position} on the Demon List.",
+        "\"{level}\" has been verified by {player} after {attempts} attempts. No. {position} on the Demon List.",
         "\"{level}\" has been verified by {player}, placed at No. {position} on the Demon List.",
-        "\"{level}\" is officially verified by {player}. No. {position} on the Demon List.\n\n{url}",
     ],
 
     # ── Level beaten (new victor) ──────────────────────────────────────────────
     "level_beaten": [
         "{player} has beaten \"{level}\" (No. {position} on the Demon List).",
         "New victor on \"{level}\": {player}. No. {position} on the Demon List.",
-        "{player} beats \"{level}\", currently No. {position} on the Demon List.\n\n{context}",
+        "{player} beats \"{level}\" after {attempts} attempts, currently No. {position} on the Demon List.",
         "{player} becomes the {victor_number} person to beat \"{level}\".",
     ],
 

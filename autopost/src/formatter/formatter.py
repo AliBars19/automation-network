@@ -101,6 +101,35 @@ _NICHE_HASHTAG: dict[str, str] = {
     "geometrydash": "#GeometryDash",
 }
 
+# Known GD player → Twitter handle mapping.
+# Used to tag players in verification/completion tweets so they see and
+# potentially retweet. Handles without @ prefix — we add it in _build_context.
+_GD_PLAYER_HANDLES: dict[str, str] = {
+    "zoink": "gdzoink",
+    "trick": "GmdTrick",
+    "doggie": "DasherDoggie",
+    "diamond": "DiamondGD_",
+    "spaceuk": "SpaceUKGD",
+    "cursed": "CursedGD",
+    "nswish": "nSwishGD",
+    "npesta": "zNpesta__",
+    "technical": "TechnicalJL",
+    "aeon": "aabornaeon",
+    "trusta": "TrusTaGD",
+    "krmal": "KrmaLGD",
+    "riot": "Riot_GD",
+    "sunix": "SunixGD",
+    "nexus": "NexusGMD",
+    "viprin": "vipringd",
+    "wulzy": "1wulz",
+    "colon": "TheRealGDColon",
+    "evw": "VanWilderman",
+    "juniper": "JuniperGD",
+    "guitarhero": "OfficialEspGHS",
+    "cuatrocientos": "Jadrichiev1",
+    "knobbelboy": "knobbelboy",
+}
+
 
 def _append_hashtag(text: str, niche: str) -> str:
     """Append the niche hashtag if it fits within 280 chars and isn't already present."""
@@ -221,6 +250,12 @@ def _build_context(content: RawContent) -> dict:
         for k, v in content.metadata.items()
         if v is not None and str(v).strip()
     })
+
+    # For GD content: try to replace player name with @handle for tagging
+    if content.niche == "geometrydash" and author != "Unknown":
+        handle = _GD_PLAYER_HANDLES.get(author.lower())
+        if handle:
+            base["player"] = f"@{handle}"
 
     return base
 
