@@ -176,6 +176,17 @@ class TwitterMonitorCollector(BaseCollector):
             if text.startswith("RT @"):
                 continue
 
+            # Skip non-English tweets — both accounts target English audiences.
+            # Twitter's lang field in legacy: "en", "und" (undetermined), "qme"
+            # (media-only), "zxx" (no text). Allow those, reject everything else.
+            tweet_lang = legacy.get("lang", "en")
+            if tweet_lang not in ("en", "und", "qme", "qht", "zxx"):
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"lang={tweet_lang} — skipping non-English"
+                )
+                continue
+
             # Only accept tweets from the last 7 days
             created_at = legacy.get("created_at", "")
             if created_at:
