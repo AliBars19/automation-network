@@ -356,6 +356,7 @@ class TestCollectAndQueue:
             patch("src.poster.queue.prepare_media", return_value=None),
             patch("src.poster.queue.is_similar_story", return_value=False),
             patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
         ):
             result = await collect_and_queue(collector, "rocketleague")
 

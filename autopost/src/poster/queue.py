@@ -26,6 +26,7 @@ from src.database.db import (
 from src.formatter.formatter import format_tweet
 from src.formatter.media import prepare_media
 from src.poster.client import TwitterClient
+from src.poster.quality_gate import passes_quality_gate
 from src.poster.rate_limiter import (
     can_post,
     consecutive_failure_count,
@@ -61,7 +62,11 @@ _PRIORITY: dict[str, int] = {
     "creator_spotlight":   5,
     "speedrun_wr":         5,
     "monitored_tweet":     6,
-    "community_clip":      7,
+    "community_clip":      6,
+    "reddit_clip":         6,
+    "first_victor":        3,
+    "viral_moment":        5,
+    "community_event":     4,
     "flashback":           7,
     "stat_milestone":      7,
     "rank_milestone":      8,
@@ -97,6 +102,29 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                     f"[{niche}] URL already queued from another source, skipping:"
                     f" {item.url[:70]}"
                 )
+                continue
+
+            # Quality gate: community content must pass engagement + cap checks
+            item_age = 0.0
+            if hasattr(item, "metadata") and "created_at" in item.metadata:
+                try:
+                    from datetime import datetime as _dt
+                    created = _dt.fromisoformat(
+                        item.metadata["created_at"].replace("Z", "+00:00")
+                    )
+                    item_age = (
+                        _dt.now(__import__("datetime").timezone.utc) - created
+                    ).total_seconds() / 3600
+                except Exception:
+                    pass
+
+            if not passes_quality_gate(
+                content_type=item.content_type,
+                niche=niche,
+                score=item.score,
+                age_hours=item_age,
+                source_followers=item.metadata.get("followers", 0),
+            ):
                 continue
 
             tweet_text = format_tweet(item)

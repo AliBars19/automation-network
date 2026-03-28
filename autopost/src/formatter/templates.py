@@ -85,8 +85,26 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Community clip / highlight ─────────────────────────────────────────────
     "community_clip": [
-        "{title}\n\n{url}",
-        "{title}\n\n{url}",
+        "{title}",
+        "{title}\n\nvia {author}",
+    ],
+
+    # ── Reddit clip (native video attached, no URL needed) ───────────────────
+    "reddit_clip": [
+        "{title}\n\nvia u/{author} on Reddit",
+        "{title}\n\n(via u/{author})",
+    ],
+
+    # ── Viral moment ──────────────────────────────────────────────────────────
+    "viral_moment": [
+        "{title}",
+        "{title}\n\nvia {author}",
+    ],
+
+    # ── Community event ───────────────────────────────────────────────────────
+    "community_event": [
+        "{title}",
+        "{title}\n\n{details}",
     ],
 
     # ── Rank / competitive milestone ──────────────────────────────────────────
@@ -233,6 +251,31 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "speedrun_wr": [
         "{player} has set a new {category} world record: {time}.\n\nPrevious: {prev_time}\n\n{url}",
         "{player} breaks the {category} world record with {time}.\n\n{url}",
+    ],
+
+    # ── First victor ──────────────────────────────────────────────────────────
+    "first_victor": [
+        "{player} becomes the first person to beat \"{level}\" (No. {position} on the Demon List).",
+        "First victor on \"{level}\": {player}. No. {position} on the Demon List after {attempts} attempts.",
+        "FIRST VICTOR: {player} has beaten \"{level}\" (No. {position}).",
+    ],
+
+    # ── Reddit clip (native video attached) ──────────────────────────────────
+    "reddit_clip": [
+        "{title}\n\nvia u/{author} on Reddit",
+        "{title}\n\n(via u/{author})",
+    ],
+
+    # ── Community event ───────────────────────────────────────────────────────
+    "community_event": [
+        "{title}",
+        "{title}\n\n{details}",
+    ],
+
+    # ── Viral moment ──────────────────────────────────────────────────────────
+    "viral_moment": [
+        "{title}",
+        "{title}\n\nvia {author}",
     ],
 
     # ── Breaking / miscellaneous news ─────────────────────────────────────────
