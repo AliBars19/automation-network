@@ -108,9 +108,9 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── YouTube video uploads ─────────────────────────────────────────────────
     "youtube_video": [
-        "New video from {creator}: \"{title}\"\n\n{url}",
-        "{creator} just uploaded: \"{title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{title}\"\n\n{url}",
+        "New video from {creator}: \"{video_title}\"\n\n{url}",
+        "{creator} just uploaded: \"{video_title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
     ],
 
     # ── Pro player content (disabled -- bot signal) ──────────────────────────
@@ -215,9 +215,9 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── YouTube video uploads ─────────────────────────────────────────────────
     "youtube_video": [
-        "New video from {creator}: \"{title}\"\n\n{url}",
-        "{creator} just uploaded: \"{title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{title}\"\n\n{url}",
+        "New video from {creator}: \"{video_title}\"\n\n{url}",
+        "{creator} just uploaded: \"{video_title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
     ],
 
     # ── Creator spotlight ─────────────────────────────────────────────────────

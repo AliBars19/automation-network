@@ -129,9 +129,10 @@ class YouTubeCollector(BaseCollector):
                 author       = channel,
                 score        = 0,
                 metadata     = {
-                    "creator": channel,
-                    "title":   title,
-                    "url":     video_url,
+                    "creator":     channel,
+                    "video_title": title,
+                    "title":       title,
+                    "url":         video_url,
                 },
             ))
 

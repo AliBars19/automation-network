@@ -31,7 +31,7 @@ class TestYouTubeTemplatesEnabled:
             url="https://youtu.be/abc123",
             body="Watch this crazy clip from ranked",
             author="SunlessKhan", score=0,
-            metadata={"creator": "SunlessKhan"},
+            metadata={"creator": "SunlessKhan", "video_title": "INSANE FLIP RESET DOUBLE TAP"},
         )
         result = format_tweet(content)
         assert result is not None
@@ -48,7 +48,7 @@ class TestYouTubeTemplatesEnabled:
             url="https://youtu.be/xyz789",
             body="After 50000 attempts...",
             author="GD Colon", score=0,
-            metadata={"creator": "GD Colon"},
+            metadata={"creator": "GD Colon", "video_title": "I Beat The HARDEST Level in GD"},
         )
         result = format_tweet(content)
         assert result is not None
@@ -63,7 +63,7 @@ class TestYouTubeTemplatesEnabled:
             title="A" * 250,
             url="https://youtu.be/longvid",
             body="Description", author="Creator", score=0,
-            metadata={"creator": "Creator"},
+            metadata={"creator": "Creator", "video_title": "A" * 250},
         )
         result = format_tweet(content)
         assert result is not None

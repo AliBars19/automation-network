@@ -28,7 +28,7 @@ class TestIsRelevant:
         assert is_relevant("Insane flip reset into goal!", "rocketleague") is True
 
     def test_rl_esports_match(self):
-        assert is_relevant("roster change: player joins team", "rocketleague") is True
+        assert is_relevant("rl roster change: player joins team", "rocketleague") is True
 
     def test_rl_patch_match(self):
         assert is_relevant("RL patch v2.67 is live", "rocketleague") is True
@@ -51,7 +51,7 @@ class TestIsRelevant:
         assert is_relevant("Geometry Dash 2.3 release date!", "geometrydash") is True
 
     def test_gd_demon_match(self):
-        assert is_relevant("New extreme demon verified!", "geometrydash") is True
+        assert is_relevant("New extreme demon on the list!", "geometrydash") is True
 
     def test_gd_demonlist_match(self):
         assert is_relevant("Moved up on the demonlist", "geometrydash") is True
@@ -90,6 +90,35 @@ class TestIsRelevant:
 
     def test_empty_text_rejected(self):
         assert is_relevant("", "rocketleague") is False
+
+    # ── False positive rejection ─────────────────────────────────────────────
+
+    def test_rl_competitive_not_false_positive(self):
+        assert is_relevant("The competitive cooking scene is growing", "rocketleague") is False
+
+    def test_rl_worlds_not_false_positive(self):
+        assert is_relevant("The world's largest pizza was made today", "rocketleague") is False
+
+    def test_rl_transfer_not_false_positive(self):
+        assert is_relevant("Bank transfer failed this morning", "rocketleague") is False
+
+    def test_rl_roster_not_false_positive(self):
+        assert is_relevant("The roster of faculty at our school", "rocketleague") is False
+
+    def test_gd_verified_not_false_positive(self):
+        assert is_relevant("Get verified on X for free", "geometrydash") is False
+
+    def test_gd_beaten_not_false_positive(self):
+        assert is_relevant("I just got beaten by my brother at chess", "geometrydash") is False
+
+    def test_gd_rated_not_false_positive(self):
+        assert is_relevant("This restaurant is rated 5 stars", "geometrydash") is False
+
+    def test_gd_featured_not_false_positive(self):
+        assert is_relevant("Featured on BBC news today", "geometrydash") is False
+
+    def test_gd_top10_not_false_positive(self):
+        assert is_relevant("Top 10 foods to eat this summer", "geometrydash") is False
 
     # ── Edge cases ────────────────────────────────────────────────────────────
 

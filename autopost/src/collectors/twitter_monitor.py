@@ -30,33 +30,44 @@ _TRAILING_TCO_RE = re.compile(r"\s*https://t\.co/\w+\s*$")
 # filter catches the occasional off-topic tweet, personal reply, or promo.
 
 _RL_RELEVANCE: set[str] = {
-    "rocket league", "rlcs", "psyonix", "octane", "fennec",
-    "dominus", "breakout", "boost pad", "decal", "goal explosion",
-    "ranked", "tournament", "esport", "grand champ",
-    "supersonic legend", "ssl ",
+    # Game identity
+    "rocket league", "rlcs", "psyonix",
+    # Vehicles / items
+    "octane", "fennec", "dominus", "decal", "goal explosion",
     "item shop", "battle pass", "rocket pass",
+    # Mechanics
     "aerial", "flip reset", "musty flick", "ceiling shot", "air dribble",
-    "competitive", "hoops", "dropshot", "rumble", "snowday",
+    # Modes
+    "hoops", "dropshot", "rumble", "snowday",
+    # Scoped updates / esports
     "rl patch", "rl update", "rl hotfix", "rl season",
-    "rlcs major", "worlds", "regional",
-    "free agent", "roster", "transfer",
+    "rlcs major", "rlcs worlds", "rlcs regional",
+    "rl roster", "rl free agent", "rl transfer",
+    "grand champ", "supersonic legend",
+    # Hashtags
     "#rlcs", "#rocketleague",
 }
 
 _GD_RELEVANCE: set[str] = {
+    # Game identity
     "geometry dash", "geometrydash", "robtop", "rubrub",
-    "demon", "demonlist", "extreme demon", "insane demon",
+    # Demon list
+    "demon list", "demonlist", "extreme demon", "insane demon",
     "pointercrate", "aredl", "challenge list",
-    "verified", "verification", "beaten",
-    "rated", "star rate", "featured",
+    # Scoped actions (require GD context words)
+    "gd verified", "gd verification", "gd beaten", "gd rated",
+    "gd featured", "star rate",
+    # Game features
     "daily level", "weekly demon", "gauntlet", "map pack",
     "geode", "texture pack", "megahack",
     "gd level", "gd update", "gd mod", "gd creator",
-    "gdbrowser", "newgrounds", "nong ",
-    "dashword", "gd colon", "wulzy", "npesta", "technical",
-    "aeonair", "evw", "nexus", "viprin", "doggie",
-    "top 1", "top 5", "top 10", "top 50", "top 75", "top 100",
-    "world record", "attempts", "noclip",
+    "gdbrowser", "newgrounds",
+    # Known community figures (scoped names)
+    "dashword", "gd colon", "wulzy", "npesta",
+    "aeonair", "viprin", "doggie",
+    # Scoped records / stats
+    "gd world record", "demon list top",
+    # Hashtags
     "#geometrydash", "#gd", "#demonlist",
 }
 
