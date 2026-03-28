@@ -131,13 +131,23 @@ _GD_PLAYER_HANDLES: dict[str, str] = {
 }
 
 
+_RELATED_HASHTAGS: dict[str, set[str]] = {
+    "rocketleague": {"#rocketleague", "#rlcs"},
+    "geometrydash": {"#geometrydash", "#demonlist", "#gd"},
+}
+
+
 def _append_hashtag(text: str, niche: str) -> str:
-    """Append the niche hashtag if it fits within 280 chars and isn't already present."""
+    """Append the niche hashtag if it fits within 280 chars and isn't already present.
+    Also skips if a related hashtag is already in the text (e.g. #RLCS counts
+    as sufficient for Rocket League — don't add a redundant second hashtag)."""
     hashtag = _NICHE_HASHTAG.get(niche, "")
     if not hashtag:
         return text
-    if hashtag.lower() in text.lower():
-        return text  # already has it (e.g. template included #RLCS)
+    lowered = text.lower()
+    related = _RELATED_HASHTAGS.get(niche, set())
+    if any(tag in lowered for tag in related):
+        return text  # already has a niche-relevant hashtag
     candidate = f"{text}\n\n{hashtag}"
     if len(candidate) <= MAX_CHARS:
         return candidate

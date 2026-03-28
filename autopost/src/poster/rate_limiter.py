@@ -165,7 +165,10 @@ def within_posting_window(is_breaking: bool = False) -> bool:
         # Window wraps past midnight (e.g. 14-04 means 14:00..23:59 + 00:00..03:59)
         in_window = hour >= POSTING_WINDOW_START or hour < POSTING_WINDOW_END
     if not in_window:
-        logger.debug(f"Outside posting window (UTC {hour:02d}:xx — window 08–22)")
+        logger.debug(
+            f"Outside posting window (UTC {hour:02d}:xx "
+            f"— window {POSTING_WINDOW_START:02d}:00–{POSTING_WINDOW_END:02d}:00 UTC)"
+        )
     return in_window
 
 

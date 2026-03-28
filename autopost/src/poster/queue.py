@@ -76,6 +76,8 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
     Run one collector pass and enqueue any new content.
     Returns the number of new tweets added to the queue.
     """
+    import asyncio
+
     try:
         items: list[RawContent] = await collector.collect()
     except Exception as exc:
@@ -104,8 +106,14 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                 retweet_id = item.metadata.get("retweet_id")
                 if not retweet_id:
                     continue  # no template and no retweet — skip entirely
-                # Queue as "RETWEET:{id}" — post_next will call client.retweet()
                 tweet_text = f"RETWEET:{retweet_id}"
+                # Dedup: same tweet ID may arrive from multiple sources
+                existing = conn.execute(
+                    "SELECT 1 FROM tweet_queue WHERE tweet_text = ? AND status = 'queued' LIMIT 1",
+                    (tweet_text,),
+                ).fetchone()
+                if existing:
+                    continue
             else:
                 # Similarity check: too close to a recently queued tweet?
                 if is_similar_story(conn, tweet_text, niche):
@@ -116,7 +124,11 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                     continue
 
             priority   = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
-            media_path = prepare_media(item.image_url) if item.image_url else None
+            # Run blocking I/O (HTTP download + Pillow resize) off the event loop
+            media_path = (
+                await asyncio.to_thread(prepare_media, item.image_url)
+                if item.image_url else None
+            )
             add_to_queue(
                 conn, niche, tweet_text, content_id,
                 media_path=media_path, priority=priority,
@@ -217,7 +229,9 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             text=main_text, media_path=row["media_path"]
         )
         if tweet_id and url_reply:
-            client.post_tweet(text=url_reply, reply_to=tweet_id)
+            reply_id = client.post_tweet(text=url_reply, reply_to=tweet_id)
+            if not reply_id:
+                logger.warning(f"[{niche}] self-reply URL failed for tweet {tweet_id}")
         if tweet_id:
             mark_posted(conn, queue_id, tweet_id)
             return True
