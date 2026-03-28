@@ -24,6 +24,55 @@ _RETWEET_CONTENT_TYPE: dict[str, str] = {
 
 _TRAILING_TCO_RE = re.compile(r"\s*https://t\.co/\w+\s*$")
 
+# ── Relevance keywords per niche ─────────────────────────────────────────────
+# Tweets from retweet sources must contain at least one keyword to be retweeted.
+# Official accounts (e.g. @RocketLeague) almost always post on-topic, but this
+# filter catches the occasional off-topic tweet, personal reply, or promo.
+
+_RL_RELEVANCE: set[str] = {
+    "rocket league", "rl ", "rlcs", "psyonix", "octane", "fennec",
+    "dominus", "merc ", "breakout", "boost", "decal", "goal explosion",
+    "season ", "ranked", "tournament", "esport", "grand champ",
+    "supersonic legend", "ssl ", "diamond ", "champ ", "plat ",
+    "item shop", "battle pass", "rocket pass", "trade", "credits",
+    "aerial", "flip reset", "musty", "ceiling shot", "air dribble",
+    "competitive", "casual", "hoops", "dropshot", "rumble", "snowday",
+    "patch", "update", "hotfix", "maintenance", "downtime",
+    "rlcs major", "worlds", "lan ", "regional", "roster",
+    "free agent", "transfer", "#rlcs", "#rocketleague",
+}
+
+_GD_RELEVANCE: set[str] = {
+    "geometry dash", "gd ", "geometrydash", "robtop", "rubrub",
+    "demon", "demonlist", "extreme demon", "insane demon",
+    "pointercrate", "aredl", "challenge list",
+    "verified", "verification", "beaten", "completed",
+    "rated", "star rate", "featured", "epic ", "legendary",
+    "daily level", "weekly demon", "gauntlet", "map pack",
+    "geode", "mod ", "texture pack", "megahack",
+    "creator", "level", "2.2", "2.3", "update",
+    "gdbrowser", "newgrounds", "nong ", "song ",
+    "dashword", "colon", "wulzy", "npesta", "technical",
+    "aeonair", "evw", "nexus", "viprin", "doggie",
+    "top 1", "top 5", "top 10", "top 50", "top 75", "top 100",
+    "world record", "attempts", "practice", "noclip",
+    "#geometrydash", "#gd", "#demonlist",
+}
+
+_NICHE_RELEVANCE: dict[str, set[str]] = {
+    "rocketleague": _RL_RELEVANCE,
+    "geometrydash": _GD_RELEVANCE,
+}
+
+
+def is_relevant(text: str, niche: str) -> bool:
+    """Return True if tweet text contains at least one niche keyword."""
+    keywords = _NICHE_RELEVANCE.get(niche)
+    if not keywords:
+        return True  # unknown niche — let everything through
+    lowered = text.lower()
+    return any(kw in lowered for kw in keywords)
+
 _USER_TWEETS_FEATURES = {
     "responsive_web_graphql_exclude_directive_enabled": True,
     "verified_phone_label_enabled": False,
@@ -147,6 +196,14 @@ class TwitterMonitorCollector(BaseCollector):
                     clean_text = clean_text.replace(short, expanded)
 
             clean_text = _TRAILING_TCO_RE.sub("", clean_text).strip()
+
+            # Relevance gate: retweet sources must be on-topic
+            if self.is_retweet_source and not is_relevant(clean_text, self.niche):
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"failed relevance filter — skipping"
+                )
+                continue
 
             meta = {
                 "account": screen_name,
