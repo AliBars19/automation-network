@@ -57,7 +57,7 @@ _PRIORITY: dict[str, int] = {
     "level_rated":         4,
     "esports_matchup":     4,
     "level_beaten":        5,
-    "youtube_video":       5,
+    "youtube_video":       4,
     "creator_spotlight":   5,
     "speedrun_wr":         5,
     "monitored_tweet":     6,
