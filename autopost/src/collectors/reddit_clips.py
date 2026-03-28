@@ -179,6 +179,9 @@ def _download_and_merge(video_url: str, post_id: str) -> str | None:
     if not is_safe_url(video_url):
         return None
 
+    # Sanitize post_id to prevent path traversal (defence-in-depth)
+    post_id = re.sub(r"[^a-z0-9]", "", post_id.lower())
+
     # Derive the audio URL from the video URL
     # v.redd.it format: https://v.redd.it/{id}/DASH_720.mp4
     # Audio is at: https://v.redd.it/{id}/DASH_audio.mp4
@@ -241,17 +244,29 @@ def _download_single(url: str, post_id: str) -> str | None:
     return None
 
 
+_MAX_VIDEO_BYTES = 50 * 1024 * 1024  # 50 MB hard cap per file
+
+
 def _download_file(url: str, dest: str) -> bool:
-    """Download a URL to a local file. Returns True on success."""
+    """Stream a URL to a local file with a hard size cap. Returns True on success."""
     if not is_safe_url(url):
         return False
     try:
         with httpx.Client(timeout=20, headers=_HEADERS) as client:
-            resp = client.get(url)
-            if resp.status_code == 200 and len(resp.content) > 0:
-                Path(dest).write_bytes(resp.content)
-                return True
-            return False
+            with client.stream("GET", url) as resp:
+                if resp.status_code != 200:
+                    return False
+                size = 0
+                with open(dest, "wb") as f:
+                    for chunk in resp.iter_bytes(chunk_size=65536):
+                        size += len(chunk)
+                        if size > _MAX_VIDEO_BYTES:
+                            logger.warning(
+                                f"[RedditClips] download aborted: exceeded {_MAX_VIDEO_BYTES // (1024*1024)} MB cap"
+                            )
+                            return False
+                        f.write(chunk)
+                return size > 0
     except Exception as exc:
         logger.debug(f"[RedditClips] download failed {url[:60]}: {exc}")
         return False
