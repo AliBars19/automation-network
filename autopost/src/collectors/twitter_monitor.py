@@ -171,6 +171,11 @@ class TwitterMonitorCollector(BaseCollector):
             if text.startswith("@"):
                 continue
 
+            # Skip native retweets that weren't caught by retweeted_status_result
+            # (text-form RTs start with "RT @")
+            if text.startswith("RT @"):
+                continue
+
             # Only accept tweets from the last 7 days
             created_at = legacy.get("created_at", "")
             if created_at:

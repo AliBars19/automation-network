@@ -45,23 +45,32 @@ def format_tweet(content: RawContent) -> str | None:
     ctx = _build_context(content)
     shuffled = random.sample(variants, len(variants))
 
+    result = None
+
     # Pass 1 — find a variant that fills cleanly and fits in 280
     for tmpl in shuffled:
         if tmpl is None:
             continue
-        result = _try_format(tmpl, ctx)
-        if result and len(result) <= MAX_CHARS:
-            return result
+        candidate = _try_format(tmpl, ctx)
+        if candidate and len(candidate) <= MAX_CHARS:
+            result = candidate
+            break
 
     # Pass 2 — find a fillable variant and truncate
-    for tmpl in shuffled:
-        if tmpl is None:
-            continue
-        result = _try_format(tmpl, ctx)
-        if result:
-            return _truncate(result, MAX_CHARS)
+    if result is None:
+        for tmpl in shuffled:
+            if tmpl is None:
+                continue
+            candidate = _try_format(tmpl, ctx)
+            if candidate:
+                result = _truncate(candidate, MAX_CHARS)
+                break
 
-    return _fallback(content)
+    if result is None:
+        result = _fallback(content)
+
+    # Append niche hashtag if it fits within 280 chars
+    return _append_hashtag(result, content.niche)
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -85,6 +94,25 @@ def _try_format(template: str, ctx: dict) -> str | None:
     if "  " in result:
         return None
     return result
+
+
+_NICHE_HASHTAG: dict[str, str] = {
+    "rocketleague": "#RocketLeague",
+    "geometrydash": "#GeometryDash",
+}
+
+
+def _append_hashtag(text: str, niche: str) -> str:
+    """Append the niche hashtag if it fits within 280 chars and isn't already present."""
+    hashtag = _NICHE_HASHTAG.get(niche, "")
+    if not hashtag:
+        return text
+    if hashtag.lower() in text.lower():
+        return text  # already has it (e.g. template included #RLCS)
+    candidate = f"{text}\n\n{hashtag}"
+    if len(candidate) <= MAX_CHARS:
+        return candidate
+    return text  # doesn't fit — post without it
 
 
 def _fallback(content: RawContent) -> str:

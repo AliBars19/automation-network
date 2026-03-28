@@ -255,9 +255,9 @@ class TestFormatTweet:
         )
         assert not emoji_pattern.search(result), f"Found emoji in: {result}"
 
-    def test_gd_templates_no_social_hashtags(self):
-        """GD templates should contain no social-media hashtags (e.g. #RLCS).
-        Rank-position markers like '#1' are allowed and are not social hashtags."""
+    def test_gd_templates_only_niche_hashtag(self):
+        """GD templates should only contain #GeometryDash (appended by formatter).
+        No other social hashtags like #RLCS should appear."""
         import re
         result = format_tweet(self._make_content(
             niche="geometrydash",
@@ -266,10 +266,11 @@ class TestFormatTweet:
             metadata={"level": "Thinking Space II", "player": "Zoink"},
         ))
         assert result is not None
-        # Social hashtags: # followed by one or more alphabetic characters
-        # Rank markers (#1, #42) are intentionally excluded from this check
+        assert "#GeometryDash" in result
+        # Remove the expected hashtag, then check no others remain
+        stripped = result.replace("#GeometryDash", "")
         social_hashtag_re = re.compile(r"#[A-Za-z]")
-        assert not social_hashtag_re.search(result), f"Found social hashtag in: {result}"
+        assert not social_hashtag_re.search(stripped), f"Found unexpected hashtag in: {result}"
 
     def test_monitored_tweet_rl_produces_text_not_none(self):
         """monitored_tweet for RL should format as '{title}\\n\\n{url}', not return None."""

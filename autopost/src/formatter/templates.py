@@ -139,34 +139,36 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Demon list updates ─────────────────────────────────────────────────────
+    # NOTE: Use "No." instead of "#" for positions to avoid Twitter rendering
+    # them as clickable hashtags (e.g. "#56" becomes a hashtag link).
     "demon_list_update": [
         "Demon List has been updated.\n\n{changes}",
-        "\"{level}\" has been placed at #{position} on the Demon List.",
-        "\"{level}\" moved from #{old_position} to #{position} on the Demon List.",
+        "\"{level}\" has been placed at No. {position} on the Demon List.",
+        "\"{level}\" moved from No. {old_position} to No. {position} on the Demon List.",
         "Demon List Top 5:\n\n1. {top1}\n2. {top2}\n3. {top3}\n4. {top4}\n5. {top5}",
-        "\"{level}\" by {creator} enters the Demon List at #{position}.",
+        "\"{level}\" by {creator} enters the Demon List at No. {position}.",
     ],
 
     # ── Top 1 verified (biggest news in GD -- only type that gets BREAKING) ──
     "top1_verified": [
-        "BREAKING: \"{level}\" has been verified by {player}. New Top 1 on the Demon List.\n\n{details}",
-        "\"{level}\" has been verified by {player} -- the new #1 on the Demon List.\n\n{url}",
+        "BREAKING: \"{level}\" has been verified by {player}. New No. 1 on the Demon List.\n\n{details}",
+        "\"{level}\" has been verified by {player} -- the new No. 1 on the Demon List.\n\n{url}",
         "{player} has verified \"{level}\", now the hardest rated level in Geometry Dash.\n\n{details}",
     ],
 
     # ── Level verified ────────────────────────────────────────────────────────
     "level_verified": [
-        "\"{level}\" has been verified by {player}. #{position} on the Demon List.\n\n{url}",
-        "{player} has verified \"{level}\" (#{position} on the Demon List).\n\n{details}",
-        "\"{level}\" has been verified by {player}, placed at #{position} on the Demon List.",
-        "\"{level}\" is officially verified by {player}. #{position} on the Demon List.\n\n{url}",
+        "\"{level}\" has been verified by {player}. No. {position} on the Demon List.\n\n{url}",
+        "{player} has verified \"{level}\" (No. {position} on the Demon List).\n\n{details}",
+        "\"{level}\" has been verified by {player}, placed at No. {position} on the Demon List.",
+        "\"{level}\" is officially verified by {player}. No. {position} on the Demon List.\n\n{url}",
     ],
 
     # ── Level beaten (new victor) ──────────────────────────────────────────────
     "level_beaten": [
-        "{player} has beaten \"{level}\" (#{position} on the Demon List).",
-        "New victor on \"{level}\": {player}. #{position} on the Demon List.",
-        "{player} beats \"{level}\", currently #{position} on the Demon List.\n\n{context}",
+        "{player} has beaten \"{level}\" (No. {position} on the Demon List).",
+        "New victor on \"{level}\": {player}. No. {position} on the Demon List.",
+        "{player} beats \"{level}\", currently No. {position} on the Demon List.\n\n{context}",
         "{player} becomes the {victor_number} person to beat \"{level}\".",
     ],
 
