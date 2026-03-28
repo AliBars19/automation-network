@@ -230,7 +230,7 @@ class TestCollectRawContentFields:
     @pytest.mark.asyncio
     async def test_retweet_source_fields_populated(self):
         """Official accounts with retweet: true get retweet content type + retweet_id."""
-        tweet = _make_tweet_dict(tweet_id="42", text="Season 14 live!", screen_name="RocketLeague")
+        tweet = _make_tweet_dict(tweet_id="42", text="Rocket League Season 14 live!", screen_name="RocketLeague")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(retweet=True)
         p1, p2 = _patches(resp)
@@ -259,7 +259,7 @@ class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
     async def test_gd_retweet_content_type(self):
-        tweet = _make_tweet_dict(text="GD 2.3 coming!")
+        tweet = _make_tweet_dict(text="Geometry Dash 2.3 coming!")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(niche="geometrydash", retweet=True)
         p1, p2 = _patches(resp)
@@ -391,7 +391,7 @@ class TestCollectEdgeCases:
     @pytest.mark.asyncio
     async def test_retweet_source_metadata_has_retweet_id_equal_to_tweet_id(self):
         """Retweet sources must set retweet_id to the tweet's own id_str."""
-        tweet = _make_tweet_dict(tweet_id="88", text="Official announcement")
+        tweet = _make_tweet_dict(tweet_id="88", text="Rocket League Season 14 patch notes!")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(niche="rocketleague", retweet=True)
         p1, p2 = _patches(resp)

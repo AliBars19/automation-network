@@ -213,17 +213,21 @@ class TestFormatTweet:
         assert result is not None
         assert len(result) <= 280
 
-    def test_youtube_video_returns_none_rl(self):
-        """YouTube video posting is disabled -- should return None."""
+    def test_youtube_video_returns_text_rl(self):
+        """YouTube video templates are now enabled — should return formatted text."""
         result = format_tweet(self._make_content(content_type="youtube_video"))
-        assert result is None
+        assert result is not None
+        assert isinstance(result, str)
+        assert len(result) <= 280
 
-    def test_youtube_video_returns_none_gd(self):
-        """YouTube video posting is disabled for GD too."""
+    def test_youtube_video_returns_text_gd(self):
+        """YouTube video templates are now enabled for GD too."""
         result = format_tweet(self._make_content(
             niche="geometrydash", content_type="youtube_video",
         ))
-        assert result is None
+        assert result is not None
+        assert isinstance(result, str)
+        assert len(result) <= 280
 
     def test_pro_player_content_returns_none(self):
         """Legacy pro_player_content is disabled."""
