@@ -143,7 +143,23 @@ class RedditClipCollector(BaseCollector):
 # ── Reddit JSON fetch ────────────────────────────────────────────────────────
 
 async def _fetch_hot_posts(subreddit: str, limit: int = 25) -> list[dict]:
-    """Fetch hot posts from a subreddit using the public JSON endpoint."""
+    """Fetch hot posts from a subreddit.
+
+    Tries the JSON endpoint first, falls back to RSS + per-post JSON
+    if the server blocks JSON (DigitalOcean IPs get 403 on .json but
+    RSS still works).
+    """
+    # Try JSON first (has all the data we need in one call)
+    posts = await _fetch_json(subreddit, limit)
+    if posts:
+        return posts
+
+    # Fallback: RSS gives us post IDs, then we fetch each post's JSON
+    return await _fetch_via_rss(subreddit, limit)
+
+
+async def _fetch_json(subreddit: str, limit: int) -> list[dict]:
+    """Primary: Reddit JSON endpoint."""
     url = f"https://www.reddit.com/r/{subreddit}/hot.json"
     if not is_safe_url(url):
         return []
@@ -154,8 +170,55 @@ async def _fetch_hot_posts(subreddit: str, limit: int = 25) -> list[dict]:
             data = resp.json()
             return data.get("data", {}).get("children", [])
     except httpx.HTTPError as exc:
-        logger.warning(f"[RedditClips] r/{subreddit} fetch failed: {exc}")
+        logger.debug(f"[RedditClips] r/{subreddit} JSON blocked ({exc}), trying RSS")
         return []
+
+
+async def _fetch_via_rss(subreddit: str, limit: int) -> list[dict]:
+    """Fallback: RSS feed for post URLs, then individual .json per post.
+
+    RSS bypasses Reddit's IP-based JSON blocking on DigitalOcean.
+    """
+    rss_url = f"https://www.reddit.com/r/{subreddit}/.rss"
+    if not is_safe_url(rss_url):
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
+            resp = await client.get(rss_url)
+            resp.raise_for_status()
+            rss_text = resp.text
+    except httpx.HTTPError as exc:
+        logger.warning(f"[RedditClips] r/{subreddit} RSS failed: {exc}")
+        return []
+
+    # Parse RSS to extract post URLs
+    import re as _re
+    links = _re.findall(
+        rf"https://www\.reddit\.com/r/{_re.escape(subreddit)}/comments/(\w+)/",
+        rss_text,
+    )
+    if not links:
+        return []
+
+    # Fetch each post's JSON (limit to avoid hammering)
+    posts: list[dict] = []
+    async with httpx.AsyncClient(timeout=10, headers=_HEADERS) as client:
+        for post_id in links[:limit]:
+            try:
+                url = f"https://www.reddit.com/comments/{post_id}.json"
+                resp = await client.get(url, params={"raw_json": 1})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Reddit returns [listing, comments] — first listing has the post
+                    if isinstance(data, list) and len(data) > 0:
+                        children = data[0].get("data", {}).get("children", [])
+                        if children:
+                            posts.append(children[0])
+            except Exception:
+                continue
+
+    logger.info(f"[RedditClips] r/{subreddit} RSS fallback → {len(posts)} posts")
+    return posts
 
 
 # ── Video download + merge ───────────────────────────────────────────────────
