@@ -143,6 +143,15 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                 if existing:
                     continue
             else:
+                # Exact-match dedup: prevent the same tweet text from being
+                # queued twice (catches YouTube videos re-collected across polls)
+                exact_dup = conn.execute(
+                    "SELECT 1 FROM tweet_queue WHERE tweet_text = ? AND niche = ? AND status IN ('queued', 'posted') LIMIT 1",
+                    (tweet_text, niche),
+                ).fetchone()
+                if exact_dup:
+                    continue
+
                 # Similarity check: too close to a recently queued tweet?
                 if is_similar_story(conn, tweet_text, niche):
                     logger.debug(

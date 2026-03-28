@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS source_errors (
 CREATE INDEX IF NOT EXISTS idx_raw_niche        ON raw_content(niche);
 CREATE INDEX IF NOT EXISTS idx_raw_collected    ON raw_content(collected_at);
 CREATE INDEX IF NOT EXISTS idx_queue_status     ON tweet_queue(status, priority, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_queue_text_niche ON tweet_queue(tweet_text, niche, status);
 CREATE INDEX IF NOT EXISTS idx_queue_niche      ON tweet_queue(niche, status);
 CREATE INDEX IF NOT EXISTS idx_log_niche        ON post_log(niche, posted_at);
 CREATE INDEX IF NOT EXISTS idx_src_errors       ON source_errors(source_id, occurred_at);
