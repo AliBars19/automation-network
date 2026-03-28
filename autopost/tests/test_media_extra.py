@@ -1,10 +1,9 @@
 """
 Additional tests for src/formatter/media.py covering missing lines:
   - Lines 61-63: prepare_media() OSError when writing file
-  - Lines 96, 99, 102-103: _is_safe_url() edge cases (non-http scheme, known
-    blocked hosts, private/loopback IP addresses)
-  - Lines 107-108: _is_safe_url() exception path
-  - Lines 114-115: _download() blocked by _is_safe_url
+  - _is_safe_url() edge cases (non-http scheme, known blocked hosts,
+    private/loopback IP addresses) — now tested via the shared url_utils module
+  - _download() blocked by _is_safe_url
 """
 import ipaddress
 from io import BytesIO
@@ -14,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
+from src.collectors.url_utils import is_safe_url as _is_safe_url
 from src.formatter.media import (
-    _is_safe_url,
     _download,
     prepare_media,
     cleanup_old_media,
@@ -90,10 +89,11 @@ class TestIsSafeUrlEdgeCases:
         assert _is_safe_url("https://images.contentful.com/photo.jpg") is True
 
     def test_outer_exception_returns_false(self):
-        # Line 107-108: outer except Exception → return False
-        # We can trigger this by patching urlparse (imported locally inside _is_safe_url)
-        # to raise a non-ValueError exception.
-        with patch("urllib.parse.urlparse", side_effect=RuntimeError("forced error")):
+        # outer except Exception → return False
+        # Patch socket.gethostbyname to raise an unexpected exception type
+        # that bypasses the inner except clauses and hits the outer catch-all.
+        with patch("src.collectors.url_utils.socket.gethostbyname", side_effect=RuntimeError("forced")), \
+             patch("src.collectors.url_utils.ipaddress.ip_address", side_effect=RuntimeError("forced")):
             result = _is_safe_url("https://example.com/image.jpg")
         assert result is False
 
