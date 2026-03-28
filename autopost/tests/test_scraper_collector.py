@@ -160,6 +160,7 @@ class TestFetch:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.text = "<html><body>Content</body></html>"
+        mock_response.is_redirect = False
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)

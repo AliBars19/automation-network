@@ -59,18 +59,54 @@ class ScraperCollector(BaseCollector):
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
 async def _fetch(url: str) -> str | None:
+    if not _is_safe_url(url):
+        logger.warning(f"[Scraper] blocked unsafe URL: {url[:80]}")
+        return None
     try:
         async with httpx.AsyncClient(
             timeout=20,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=_HEADERS,
         ) as client:
-            resp = await client.get(url)
+            current_url = url
+            for _ in range(5):  # max redirect hops
+                resp = await client.get(current_url)
+                if resp.is_redirect:
+                    next_url = resp.headers.get("location", "")
+                    if not _is_safe_url(next_url):
+                        logger.warning(f"[Scraper] blocked unsafe redirect: {next_url[:80]}")
+                        return None
+                    current_url = next_url
+                    continue
+                break
             resp.raise_for_status()
             return resp.text
     except httpx.HTTPError as exc:
         logger.warning(f"[Scraper] fetch failed {url[:60]}: {exc}")
         return None
+
+
+def _is_safe_url(url: str) -> bool:
+    """Reject URLs targeting private/link-local IPs (SSRF prevention)."""
+    import ipaddress
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname or ""
+        if host in ("169.254.169.254", "metadata.google.internal"):
+            return False
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_link_local or addr.is_loopback:
+                return False
+        except ValueError:
+            pass
+        return True
+    except Exception:
+        return False
 
 
 # ── Parse ─────────────────────────────────────────────────────────────────────

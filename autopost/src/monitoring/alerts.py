@@ -4,6 +4,7 @@ and posting dry spells (queue empty for too long).
 
 Set DISCORD_WEBHOOK_URL in .env to enable. If unset, all calls are no-ops.
 """
+import re
 from datetime import datetime, timezone
 
 import httpx
@@ -19,6 +20,18 @@ _COLOUR = {
     "info":    0x3498DB,   # blue
 }
 
+_VALID_WEBHOOK_PREFIX = "https://discord.com/api/webhooks/"
+
+# Sanitize API keys / tokens that may leak in error messages
+_SECRET_RE = re.compile(
+    r"(?:key|token|secret|auth_token|api_key|ct0|auth)=[^&\s\"']{4,}", re.I
+)
+
+
+def _sanitize(text: str) -> str:
+    """Strip credentials from text before sending to external services."""
+    return _SECRET_RE.sub("[REDACTED]", text)
+
 
 async def send_alert(message: str, level: str = "error") -> None:
     """
@@ -27,10 +40,16 @@ async def send_alert(message: str, level: str = "error") -> None:
     """
     if not DISCORD_WEBHOOK_URL:
         return
+    if not DISCORD_WEBHOOK_URL.startswith(_VALID_WEBHOOK_PREFIX):
+        logger.warning("[Alerts] DISCORD_WEBHOOK_URL is not a valid Discord webhook — skipping")
+        return
+
+    # Sanitize all outbound messages to prevent credential leaks
+    safe_message = _sanitize(message)
 
     payload = {
         "embeds": [{
-            "description": message,
+            "description": safe_message,
             "color":       _COLOUR.get(level, _COLOUR["error"]),
             "footer":      {"text": f"AutoPost • {_utcnow()}"},
         }]

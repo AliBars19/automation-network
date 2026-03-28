@@ -35,7 +35,7 @@ class TestSendAlert:
     async def test_posts_when_webhook_url_set(self):
         """send_alert() should call _post with an embeds payload."""
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/webhook/123"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/123/abc"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await send_alert("Test alert", level="error")
@@ -51,7 +51,7 @@ class TestSendAlert:
         colours_seen = {}
         for level in ("error", "warning", "success", "info"):
             with (
-                patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/webhook/x"),
+                patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/x/abc"),
                 patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
             ):
                 await send_alert("msg", level=level)
@@ -66,7 +66,7 @@ class TestSendAlert:
         """An unrecognised level should use the error colour."""
         from src.monitoring.alerts import _COLOUR
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await send_alert("msg", level="totally_unknown")
@@ -81,7 +81,7 @@ class TestHelperAlerts:
     @pytest.mark.asyncio
     async def test_alert_collector_failure(self):
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await alert_collector_failure("RSSCollector", "rocketleague", "timeout error")
@@ -95,7 +95,7 @@ class TestHelperAlerts:
     @pytest.mark.asyncio
     async def test_alert_poster_failure(self):
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await alert_poster_failure("geometrydash", "403 Forbidden")
@@ -108,7 +108,7 @@ class TestHelperAlerts:
     @pytest.mark.asyncio
     async def test_alert_dry_spell(self):
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await alert_dry_spell("rocketleague", hours=6)
@@ -121,7 +121,7 @@ class TestHelperAlerts:
     @pytest.mark.asyncio
     async def test_alert_startup_dry_run(self):
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await alert_startup(dry_run=True)
@@ -132,7 +132,7 @@ class TestHelperAlerts:
     @pytest.mark.asyncio
     async def test_alert_startup_live_mode(self):
         with (
-            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://hook"),
+            patch.object(alerts_module, "DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test/hook"),
             patch("src.monitoring.alerts._post", new_callable=AsyncMock) as mock_post,
         ):
             await alert_startup(dry_run=False)

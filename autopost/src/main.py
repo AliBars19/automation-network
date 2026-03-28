@@ -99,7 +99,7 @@ async def _run_collector(
         if n:
             logger.info(f"[Scheduler] {source_name} → {n} new items queued")
     except Exception as exc:
-        logger.error(f"[Scheduler] {source_name} [{niche}] failed: {exc}")
+        logger.error(f"[Scheduler] {source_name} [{niche}] failed: {_sanitize_exc(exc)}")
 
         with get_db() as conn:
             record_source_error(conn, source_id, str(exc))
@@ -130,10 +130,10 @@ def _run_poster(niche: str, client: TwitterClient) -> None:
     try:
         post_next(niche, client)
     except Exception as exc:
-        logger.error(f"[Scheduler] poster [{niche}] failed: {exc}")
+        logger.error(f"[Scheduler] poster [{niche}] failed: {_sanitize_exc(exc)}")
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(_alert(f"Poster [{niche}] failed: {exc}"))
+            loop.create_task(_alert(f"Poster [{niche}] failed: {_sanitize_exc(exc)}"))
         except RuntimeError:
             pass
 
