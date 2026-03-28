@@ -5,6 +5,8 @@ Requires YOUTUBE_API_KEY in .env (free quota: 10,000 units/day, well within limi
 Each channel is polled for its latest uploads. New video IDs are deduplicated
 via insert_raw_content so each video is only ever tweeted once.
 """
+import re
+
 import httpx
 from loguru import logger
 
@@ -14,6 +16,25 @@ from src.collectors.base import BaseCollector, RawContent
 _BASE_URL  = "https://www.googleapis.com/youtube/v3"
 _TIMEOUT   = 15
 _MAX_RESULTS = 5   # videos to check per poll (keeps quota usage low)
+
+# Patterns that indicate a YouTube Short or low-effort upload
+_SHORTS_RE = re.compile(r"#shorts?\b", re.I)
+_LOW_QUALITY_TITLE_LEN = 15  # titles shorter than this are likely Shorts captions
+
+
+def _is_short_or_low_quality(title: str, description: str) -> bool:
+    """Return True if the video looks like a YouTube Short or low-effort content."""
+    combined = f"{title} {description}".lower()
+    # Explicit Shorts tag
+    if _SHORTS_RE.search(combined):
+        return True
+    # Very short titles are usually Shorts captions ("insane clip 😱")
+    if len(title.strip()) < _LOW_QUALITY_TITLE_LEN:
+        return True
+    # Common Short-style patterns
+    if title.strip().endswith("...") and len(title.strip()) < 30:
+        return True
+    return False
 
 
 class YouTubeCollector(BaseCollector):
@@ -114,6 +135,13 @@ class YouTubeCollector(BaseCollector):
                 .get("url", "")
             )
             video_url = f"https://youtu.be/{video_id}"
+
+            # Skip YouTube Shorts and low-effort uploads.
+            # Shorts have vertical thumbnails (no maxres), short titles,
+            # or "#Shorts" / "#Short" in title/description.
+            if _is_short_or_low_quality(title, description):
+                logger.debug(f"[YouTube] skipping Short/low-quality: {title[:60]}")
+                continue
 
             content_type = "youtube_video"
 

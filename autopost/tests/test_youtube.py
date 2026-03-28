@@ -368,10 +368,10 @@ class TestRawContentFields:
 
     @pytest.mark.asyncio
     async def test_metadata_contains_creator_title_url(self):
-        video = _make_video_snippet(video_id="xyz", title="Best Plays", channel_title="RLCS")
+        video = _make_video_snippet(video_id="xyz", title="Best Plays of RLCS Season 15", channel_title="RLCS")
         item = await self._collect_one_video(video)
         assert item.metadata["creator"] == "RLCS"
-        assert item.metadata["title"] == "Best Plays"
+        assert item.metadata["title"] == "Best Plays of RLCS Season 15"
         assert item.metadata["url"] == "https://youtu.be/xyz"
 
     @pytest.mark.asyncio
@@ -420,7 +420,7 @@ class TestCollectIntegration:
     @pytest.mark.asyncio
     async def test_multiple_videos_all_returned(self):
         collector = _make_collector()
-        videos = [_make_video_snippet(video_id=f"vid_{i}", title=f"Video {i}") for i in range(3)]
+        videos = [_make_video_snippet(video_id=f"vid_{i}", title=f"Full Length Video Number {i}") for i in range(3)]
         channel_resp = _make_httpx_response(200, _make_channel_response())
         playlist_resp = _make_httpx_response(200, _make_playlist_response(videos))
         client = _make_client_with_responses(channel_resp, playlist_resp)
