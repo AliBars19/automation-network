@@ -177,13 +177,26 @@ class TwitterMonitorCollector(BaseCollector):
                 continue
 
             # Skip non-English tweets — both accounts target English audiences.
-            # Twitter's lang field in legacy: "en", "und" (undetermined), "qme"
-            # (media-only), "zxx" (no text). Allow those, reject everything else.
-            tweet_lang = legacy.get("lang", "en")
-            if tweet_lang not in ("en", "und", "qme", "qht", "zxx"):
+            # Check Twitter's lang field first, then text-based French detection.
+            tweet_lang = legacy.get("lang", "")
+            if tweet_lang and tweet_lang not in ("en", "und", "qme", "qht", "zxx"):
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                     f"lang={tweet_lang} — skipping non-English"
+                )
+                continue
+
+            # Text-based French detection for tweets where lang field is missing
+            # or marked "und". Common French words that rarely appear in English.
+            _fr = text.lower()
+            if any(w in _fr for w in (
+                " les ", " des ", " est ", " pour ", " dans ",
+                " cette ", " avec ", " nous ", " mais ", " sont ",
+                "c'est ", "l'open", "matchs ", " équipe",
+            )):
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"detected French text — skipping"
                 )
                 continue
 
@@ -224,6 +237,13 @@ class TwitterMonitorCollector(BaseCollector):
                     clean_text = clean_text.replace(short, expanded)
 
             clean_text = _TRAILING_TCO_RE.sub("", clean_text).strip()
+
+            # Strip "RT @username: " prefix from monitored tweets that are
+            # text-form retweets — prevents the prefix leaking into our posts
+            if clean_text.startswith("RT @"):
+                rt_match = re.match(r"RT @\w+:\s*", clean_text)
+                if rt_match:
+                    clean_text = clean_text[rt_match.end():]
 
             # Relevance gate: retweet sources must be on-topic
             if self.is_retweet_source and not is_relevant(clean_text, self.niche):
