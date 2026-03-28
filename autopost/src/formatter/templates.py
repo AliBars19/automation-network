@@ -30,10 +30,10 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Esports results ────────────────────────────────────────────────────────
     "esports_result": [
-        "{winner} take down {loser} {score} at {event}. #RLCS",
-        "{winner} defeat {loser} {score1}-{score2} at {event}. #RLCS",
+        "{winner} {score1}-{score2} {loser} at {event}. #RLCS",
+        "{winner} take down {loser} {score1}-{score2}. #RLCS",
         "{event}: {winner} {score1}-{score2} {loser}. #RLCS",
-        "{winner} sweep {loser} out of {event}. #RLCS",
+        "{winner} sweep {loser} at {event}. #RLCS",
         "{winner} are your {event_short} Champions. #RLCS",
         "{winner} reverse sweep {loser} at {event}. #RLCS",
     ],
@@ -127,7 +127,8 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Monitored account tweets (non-retweet — formatted as news) ──────────
     "monitored_tweet": [
-        "{title}\n\n{url}",
+        "{title}",
+        "{title}\n\nvia @{author}",
     ],
 }
 
@@ -184,7 +185,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── Monitored account tweets (non-retweet — formatted as news) ──────────
     "monitored_tweet": [
-        "{title}\n\n{url}",
+        "{title}",
+        "{title}\n\nvia @{author}",
     ],
 
     # ── Level rated ───────────────────────────────────────────────────────────

@@ -273,7 +273,7 @@ class TestFormatTweet:
         assert not social_hashtag_re.search(stripped), f"Found unexpected hashtag in: {result}"
 
     def test_monitored_tweet_rl_produces_text_not_none(self):
-        """monitored_tweet for RL should format as '{title}\\n\\n{url}', not return None."""
+        """monitored_tweet for RL should produce text with title, not return None."""
         result = format_tweet(self._make_content(
             niche="rocketleague",
             content_type="monitored_tweet",
@@ -282,10 +282,9 @@ class TestFormatTweet:
         ))
         assert result is not None
         assert "Some player post" in result
-        assert "x.com/player/status/123" in result
 
     def test_monitored_tweet_gd_produces_text_not_none(self):
-        """monitored_tweet for GD should format as '{title}\\n\\n{url}', not return None."""
+        """monitored_tweet for GD should produce text with title, not return None."""
         result = format_tweet(self._make_content(
             niche="geometrydash",
             content_type="monitored_tweet",
@@ -294,7 +293,6 @@ class TestFormatTweet:
         ))
         assert result is not None
         assert "New GD level incoming" in result
-        assert "x.com/gdcreator/status/456" in result
 
     def test_monitored_tweet_within_280_chars(self):
         """monitored_tweet output must respect the 280 character limit."""

@@ -16,6 +16,7 @@ from src.database.db import get_db
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 MIN_INTERVAL_S       = 1200   # 20 min minimum between normal posts
+MIN_INTERVAL_BURST_S = 300    # 5 min minimum during match-day burst mode
 MAX_INTERVAL_S       = 3600   # 60 min maximum
 JITTER_MAX_S         = 120    # 0–120 s extra randomness
 MONTHLY_LIMIT        = 1500   # X Free tier: 1,500 tweets/month per app
@@ -31,15 +32,33 @@ _BACKOFF_CAP_S   = 3600  # max 60 minutes between retries
 _BACKOFF_ALERT_N = 3     # send Discord alert after this many consecutive failures
 
 
+# Burst mode: activated when queue has 10+ items pending, indicating a live
+# event (RLCS match day, major GD update, etc.). Reduces the minimum posting
+# gap from 20 min to 5 min so time-sensitive content doesn't get stale.
+_BURST_QUEUE_THRESHOLD = 10
+
+
+def _is_burst_mode(niche: str) -> bool:
+    """Return True if the queue has enough pending items to justify burst posting."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM tweet_queue WHERE niche = ? AND status = 'queued'",
+            (niche,),
+        ).fetchone()
+    return row["cnt"] >= _BURST_QUEUE_THRESHOLD
+
+
 def can_post(niche: str) -> bool:
     """True if enough time has passed since the last successful post."""
     last = _last_post_time(niche)
     if last is None:
         return True
     elapsed = (datetime.now(timezone.utc) - last).total_seconds()
-    if elapsed < MIN_INTERVAL_S:
+    min_gap = MIN_INTERVAL_BURST_S if _is_burst_mode(niche) else MIN_INTERVAL_S
+    if elapsed < min_gap:
         logger.debug(
-            f"[{niche}] rate limited — {int(MIN_INTERVAL_S - elapsed)}s remaining"
+            f"[{niche}] rate limited — {int(min_gap - elapsed)}s remaining"
+            f"{' (burst mode)' if min_gap == MIN_INTERVAL_BURST_S else ''}"
         )
         return False
     return True

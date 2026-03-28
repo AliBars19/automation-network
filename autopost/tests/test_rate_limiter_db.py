@@ -83,21 +83,21 @@ class TestCanPost:
 
     def test_returns_true_when_no_history(self):
         conn = _make_db()
-        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)):
+        with patch("src.poster.rate_limiter.get_db", side_effect=lambda: _ctx(conn)):
             assert can_post("rocketleague") is True
 
     def test_returns_true_when_last_post_is_old_enough(self):
         conn = _make_db()
         old_time = _utc(offset_minutes=25)  # 25 min ago, MIN_INTERVAL is 20 min
         _log_success(conn, "rocketleague", old_time)
-        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)):
+        with patch("src.poster.rate_limiter.get_db", side_effect=lambda: _ctx(conn)):
             assert can_post("rocketleague") is True
 
     def test_returns_false_when_last_post_is_too_recent(self):
         conn = _make_db()
         recent_time = _utc(offset_minutes=5)  # only 5 min ago
         _log_success(conn, "rocketleague", recent_time)
-        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)):
+        with patch("src.poster.rate_limiter.get_db", side_effect=lambda: _ctx(conn)):
             assert can_post("rocketleague") is False
 
     def test_different_niches_independent(self):
