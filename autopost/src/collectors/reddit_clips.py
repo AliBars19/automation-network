@@ -44,7 +44,7 @@ _MAX_AGE_HOURS = 12
 _MAX_VIDEO_SECONDS = 60
 
 # v.redd.it audio URL pattern
-_VREDDIT_AUDIO_RE = re.compile(r"(https://v\.redd\.it/[\w]+)/")
+_VREDDIT_AUDIO_RE = re.compile(r"(https://v\.redd\.it/[\w\-]+)/")
 
 
 class RedditClipCollector(BaseCollector):

@@ -20,12 +20,16 @@ from src.database.db import get_db
 _COMMUNITY_TYPES: set[str] = {
     "community_clip",
     "reddit_clip",
-    "monitored_tweet",
     "rank_milestone",
     "stat_milestone",
     "creator_spotlight",
     "viral_moment",
 }
+# NOTE: monitored_tweet is intentionally NOT in _COMMUNITY_TYPES.
+# These come from curated Twitter sources (ShiftRLE, LiquipediaRL, etc.)
+# that are already quality-filtered at the config level. Gating them
+# on engagement score would silently block all community Twitter content
+# since twscrape doesn't provide like counts at collection time.
 
 # Max posts per content type per day (resets at midnight UTC)
 _DAILY_CAPS: dict[str, int] = {
@@ -107,21 +111,11 @@ def _within_daily_cap(niche: str, content_type: str, cap: int) -> bool:
 
     with get_db() as conn:
         row = conn.execute(
-            """SELECT COUNT(*) AS cnt FROM tweet_queue
-               WHERE niche = ? AND status IN ('queued', 'posted')
-                 AND created_at >= ?
-                 AND tweet_text LIKE ?""",
-            (niche, today_start, f"%{content_type}%"),
+            """SELECT COUNT(*) AS cnt FROM tweet_queue tq
+               JOIN raw_content rc ON tq.raw_content_id = rc.id
+               WHERE tq.niche = ? AND tq.status IN ('queued', 'posted')
+                 AND tq.created_at >= ?
+                 AND rc.content_type = ?""",
+            (niche, today_start, content_type),
         ).fetchone()
-    # Fallback: count by checking raw_content content_type via join
-    if row["cnt"] == 0:
-        with get_db() as conn:
-            row = conn.execute(
-                """SELECT COUNT(*) AS cnt FROM tweet_queue tq
-                   JOIN raw_content rc ON tq.raw_content_id = rc.id
-                   WHERE tq.niche = ? AND tq.status IN ('queued', 'posted')
-                     AND tq.created_at >= ?
-                     AND rc.content_type = ?""",
-                (niche, today_start, content_type),
-            ).fetchone()
     return row["cnt"] < cap

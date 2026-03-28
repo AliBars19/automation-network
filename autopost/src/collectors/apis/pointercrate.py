@@ -156,6 +156,8 @@ async def _detect_first_victors(demons: list[dict]) -> list[dict]:
                 # person JUST completed it
                 if len(records) == 2:
                     verifier_name = (demon.get("verifier") or {}).get("name", "")
+                    if not verifier_name:
+                        continue  # can't distinguish verifier from victor — skip
                     for rec in records:
                         player = (rec.get("player") or {}).get("name", "")
                         if player and player != verifier_name:

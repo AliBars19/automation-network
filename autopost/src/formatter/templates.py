@@ -256,8 +256,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     # ── First victor ──────────────────────────────────────────────────────────
     "first_victor": [
         "{player} becomes the first person to beat \"{level}\" (No. {position} on the Demon List).",
-        "First victor on \"{level}\": {player}. No. {position} on the Demon List after {attempts} attempts.",
         "FIRST VICTOR: {player} has beaten \"{level}\" (No. {position}).",
+        "First person to beat \"{level}\": {player}. No. {position} on the Demon List.",
     ],
 
     # ── Reddit clip (native video attached) ──────────────────────────────────

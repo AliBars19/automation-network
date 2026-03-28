@@ -51,13 +51,13 @@ class TestEngagementThreshold:
             ) is True
 
     def test_medium_account_threshold(self):
-        # 10K-50K followers → threshold 100
+        # 10K-50K followers → threshold 100 (using creator_spotlight as community type)
         assert passes_quality_gate(
-            "monitored_tweet", "rocketleague", score=50, source_followers=20_000
+            "creator_spotlight", "rocketleague", score=50, source_followers=20_000
         ) is False
         with patch("src.poster.quality_gate._within_daily_cap", return_value=True):
             assert passes_quality_gate(
-                "monitored_tweet", "rocketleague", score=100, source_followers=20_000
+                "creator_spotlight", "rocketleague", score=100, source_followers=20_000
             ) is True
 
 
@@ -90,6 +90,11 @@ class TestDailyCaps:
 
 class TestCommunityTypes:
     def test_all_community_types_defined(self):
-        for ct in ("community_clip", "reddit_clip", "monitored_tweet",
+        for ct in ("community_clip", "reddit_clip",
                     "rank_milestone", "stat_milestone", "viral_moment"):
             assert ct in _COMMUNITY_TYPES
+
+    def test_monitored_tweet_bypasses_gate(self):
+        """monitored_tweet is NOT in _COMMUNITY_TYPES — always passes."""
+        assert "monitored_tweet" not in _COMMUNITY_TYPES
+        assert passes_quality_gate("monitored_tweet", "rocketleague", score=0) is True
