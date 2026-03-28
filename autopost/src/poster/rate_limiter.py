@@ -19,8 +19,11 @@ MIN_INTERVAL_S       = 1200   # 20 min minimum between normal posts
 MAX_INTERVAL_S       = 3600   # 60 min maximum
 JITTER_MAX_S         = 120    # 0–120 s extra randomness
 MONTHLY_LIMIT        = 1500   # X Free tier: 1,500 tweets/month per app
-POSTING_WINDOW_START = 8      # UTC hour (inclusive) — 08:00
-POSTING_WINDOW_END   = 22     # UTC hour (exclusive) — 22:00
+# Posting window shifted to cover gaming peak hours.
+# Gaming audiences peak 7-11 PM EST = 23:00-03:00 UTC.
+# Window: 14:00-04:00 UTC = 9 AM - 11 PM EST (covers afternoon + prime time)
+POSTING_WINDOW_START = 14     # UTC hour (inclusive) — 14:00 (9 AM EST)
+POSTING_WINDOW_END   = 4      # UTC hour (exclusive) — 04:00 (11 PM EST)
 
 # Failure backoff: wait 2^N minutes after N consecutive failures, capped at 60 min
 _BACKOFF_BASE_S  = 120   # 2 minutes after first failure
@@ -130,14 +133,18 @@ def within_monthly_limit(niche: str) -> bool:
 
 def within_posting_window(is_breaking: bool = False) -> bool:
     """
-    Return True if the current UTC hour is within 08:00–22:00.
-    Breaking news (is_breaking=True) always returns True — no blackout period
-    for priority-1 items (new top-1 demon, RobTop tweet, etc.).
+    Return True if the current UTC hour is within the posting window.
+    Supports windows that wrap past midnight (e.g. 14:00–04:00 UTC).
+    Breaking news (is_breaking=True) always returns True.
     """
     if is_breaking:
         return True
     hour = datetime.now(timezone.utc).hour
-    in_window = POSTING_WINDOW_START <= hour < POSTING_WINDOW_END
+    if POSTING_WINDOW_START < POSTING_WINDOW_END:
+        in_window = POSTING_WINDOW_START <= hour < POSTING_WINDOW_END
+    else:
+        # Window wraps past midnight (e.g. 14-04 means 14:00..23:59 + 00:00..03:59)
+        in_window = hour >= POSTING_WINDOW_START or hour < POSTING_WINDOW_END
     if not in_window:
         logger.debug(f"Outside posting window (UTC {hour:02d}:xx — window 08–22)")
     return in_window

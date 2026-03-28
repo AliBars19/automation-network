@@ -170,17 +170,22 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             logger.info(f"[{niche}] breaking news (p1) — bypassing window + rate limit")
 
         # Dispatch: retweet signal vs quote tweet vs normal tweet
+        # NOTE: Pure retweets are algorithmically worthless on X (lowest
+        # engagement format). We convert them to quote tweets with brief
+        # context so the algorithm treats them as original content.
         if text.startswith("RETWEET:"):
             original_id = text.split(":", 1)[1].strip()
             if not original_id.isdigit():
                 mark_failed(conn, queue_id, f"invalid retweet ID: {original_id!r}")
                 return False
-            success = client.retweet(original_id)
-            if success:
-                mark_posted(conn, queue_id, original_id)
+            # Quote-tweet with a short context line instead of pure RT
+            context = _retweet_context(niche)
+            new_id = client.quote_tweet(original_id, context)
+            if new_id:
+                mark_posted(conn, queue_id, new_id)
                 return True
             else:
-                mark_failed(conn, queue_id, f"retweet {original_id} failed")
+                mark_failed(conn, queue_id, f"quote-tweet {original_id} failed")
                 _check_failure_alert(niche)
                 return False
 
@@ -205,7 +210,14 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 _check_failure_alert(niche)
                 return False
 
-        tweet_id = client.post_tweet(text=text, media_path=row["media_path"])
+        # Split URL into self-reply to avoid the algorithm's external link penalty.
+        # Post the main content as text (+ optional image), then reply with the URL.
+        main_text, url_reply = _split_url(text)
+        tweet_id = client.post_tweet(
+            text=main_text, media_path=row["media_path"]
+        )
+        if tweet_id and url_reply:
+            client.post_tweet(text=url_reply, reply_to=tweet_id)
         if tweet_id:
             mark_posted(conn, queue_id, tweet_id)
             return True
@@ -230,6 +242,57 @@ def _check_failure_alert(niche: str) -> None:
             ))
         except Exception:
             pass
+
+
+import random
+import re
+
+_URL_RE = re.compile(r"https?://\S+")
+
+# Short context lines for converting retweets to quote tweets.
+# Variety prevents the bot from looking repetitive.
+_RT_CONTEXT = {
+    "rocketleague": [
+        "Official from Rocket League:",
+        "From Psyonix:",
+        "Rocket League news:",
+        "RLCS update:",
+    ],
+    "geometrydash": [
+        "From RobTop:",
+        "Official Geometry Dash news:",
+        "GD update:",
+        "Demon List update:",
+    ],
+}
+
+
+def _retweet_context(niche: str) -> str:
+    """Pick a random context line for converting a retweet to a quote tweet."""
+    options = _RT_CONTEXT.get(niche, ["News:"])
+    return random.choice(options)
+
+
+def _split_url(text: str) -> tuple[str, str | None]:
+    """
+    Extract the last URL from tweet text for self-reply posting.
+    Returns (main_text, url_or_none).
+
+    If the tweet is short enough that removing the URL would leave
+    less than 30 chars of content, keep it inline (not worth splitting).
+    """
+    urls = _URL_RE.findall(text)
+    if not urls:
+        return text, None
+
+    last_url = urls[-1]
+    stripped = text.replace(last_url, "").strip().rstrip("\n")
+
+    # Don't split if the remaining text is too short to stand alone
+    if len(stripped) < 30:
+        return text, None
+
+    return stripped, last_url
 
 
 def skip_stale(niche: str, max_age_hours: int = 6) -> int:

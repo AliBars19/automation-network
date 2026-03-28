@@ -485,12 +485,12 @@ class TestPostNext:
         row = conn.execute("SELECT status FROM tweet_queue WHERE niche = 'rocketleague'").fetchone()
         assert row["status"] == "failed"
 
-    def test_dispatches_retweet_signal(self):
-        """RETWEET:{id} text should call client.retweet() not post_tweet()."""
+    def test_dispatches_retweet_as_quote_tweet(self):
+        """RETWEET:{id} should call client.quote_tweet() (not retweet) for better reach."""
         conn = _make_in_memory_db()
         _insert_queue_row(conn, text="RETWEET:55555", priority=2)
         client = MagicMock()
-        client.retweet.return_value = True
+        client.quote_tweet.return_value = "qt_12345"
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),
@@ -502,15 +502,16 @@ class TestPostNext:
             result = post_next("rocketleague", client)
 
         assert result is True
-        client.retweet.assert_called_once_with("55555")
+        client.quote_tweet.assert_called_once()
+        client.retweet.assert_not_called()
         client.post_tweet.assert_not_called()
 
-    def test_marks_failed_when_retweet_fails(self):
-        """Failed retweet should mark row failed and return False."""
+    def test_marks_failed_when_quote_retweet_fails(self):
+        """Failed quote-tweet (from RETWEET signal) should mark row failed."""
         conn = _make_in_memory_db()
         _insert_queue_row(conn, text="RETWEET:66666", priority=2)
         client = MagicMock()
-        client.retweet.return_value = False
+        client.quote_tweet.return_value = None
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),

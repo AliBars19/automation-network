@@ -49,9 +49,15 @@ class TwitterClient:
 
     # ── Posting ────────────────────────────────────────────────────────────────
 
-    def post_tweet(self, text: str, media_path: str | None = None) -> str | None:
+    def post_tweet(
+        self,
+        text: str,
+        media_path: str | None = None,
+        reply_to: str | None = None,
+    ) -> str | None:
         """
         Post a tweet. Returns the tweet ID string on success, None on failure.
+        If reply_to is set, the tweet is posted as a reply to that tweet ID.
         In dry-run mode logs the tweet and returns a fake ID.
         """
         if self.dry_run:
@@ -59,6 +65,7 @@ class TwitterClient:
                 f"[{self.niche}] DRY RUN tweet:\n"
                 f"{'─' * 40}\n{text}\n{'─' * 40}\n"
                 f"media: {media_path or 'none'}"
+                f"{f' reply_to: {reply_to}' if reply_to else ''}"
             )
             return "dry_run_id"
 
@@ -70,6 +77,8 @@ class TwitterClient:
             kwargs: dict = {"text": text}
             if media_ids:
                 kwargs["media_ids"] = media_ids
+            if reply_to:
+                kwargs["in_reply_to_tweet_id"] = reply_to
 
             response = self._client.create_tweet(**kwargs)
             tweet_id = str(response.data["id"])
@@ -79,6 +88,24 @@ class TwitterClient:
         except tweepy.TweepyException as exc:
             logger.error(f"[{self.niche}] failed to post tweet: {exc}")
             return None
+
+    def post_thread(self, tweets: list[str]) -> str | None:
+        """
+        Post a chain of tweets as a self-reply thread.
+        Returns the ID of the first tweet on success, None on failure.
+        """
+        if not tweets:
+            return None
+        parent_id = None
+        first_id = None
+        for text in tweets:
+            tweet_id = self.post_tweet(text, reply_to=parent_id)
+            if tweet_id is None:
+                return first_id  # partial thread — return what we posted
+            if first_id is None:
+                first_id = tweet_id
+            parent_id = tweet_id
+        return first_id
 
     def retweet(self, tweet_id: str) -> bool:
         """Retweet by ID. Returns True on success."""
