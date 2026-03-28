@@ -69,6 +69,9 @@ def format_tweet(content: RawContent) -> str | None:
     if result is None:
         result = _fallback(content)
 
+    # Normalize whitespace: collapse double spaces, strip stray newlines
+    result = _normalize_whitespace(result)
+
     # Append niche hashtag if it fits within 280 chars
     return _append_hashtag(result, content.niche)
 
@@ -94,6 +97,16 @@ def _try_format(template: str, ctx: dict) -> str | None:
     if "  " in result:
         return None
     return result
+
+
+def _normalize_whitespace(text: str) -> str:
+    """Collapse double spaces and normalize line breaks in formatted tweets."""
+    import re as _ws_re
+    # Collapse multiple spaces into one (but preserve intentional \n\n)
+    text = _ws_re.sub(r"[ \t]{2,}", " ", text)
+    # Collapse 3+ newlines into 2
+    text = _ws_re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 _NICHE_HASHTAG: dict[str, str] = {

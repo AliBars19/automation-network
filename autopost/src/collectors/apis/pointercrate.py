@@ -116,7 +116,7 @@ async def _fetch_demons(total: int) -> list[dict]:
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(
-                f"{_BASE_URL}/demons/listed",
+                f"{_BASE_URL}/demons/listed/",
                 headers={"Accept": "application/json"},
             )
             resp.raise_for_status()
@@ -144,7 +144,7 @@ async def _detect_first_victors(demons: list[dict]) -> list[dict]:
                 continue
             try:
                 resp = await client.get(
-                    f"{_BASE_URL}/demons/{demon_id}/records",
+                    f"{_BASE_URL}/demons/{demon_id}/records/",
                     headers={"Accept": "application/json"},
                     params={"status": "approved", "limit": 5},
                 )
