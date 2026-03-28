@@ -56,10 +56,7 @@ sources:
     account_id: LiquipediaRL
     poll_interval: 300          # real-time tournament results, roster moves
 
-  - name: "@RocketBaguette"
-    type: twitter
-    account_id: RocketBaguette
-    poll_interval: 600          # French RL esports news, EU roster moves
+  # @RocketBaguette removed — posts entirely in French, off-brand for English account
 
   - name: "@octane_gg"
     type: twitter
