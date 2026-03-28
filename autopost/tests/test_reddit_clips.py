@@ -2,6 +2,7 @@
 Unit tests for src/collectors/reddit_clips.py — Reddit clip collector.
 All HTTP calls are mocked.
 """
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone, timedelta
 
@@ -144,6 +145,112 @@ class TestRedditClipFiltering:
             results = await collector.collect()
 
         assert len(results) == 1
+
+
+class TestDownloadAndMerge:
+
+    def test_blocks_unsafe_video_url(self):
+        from src.collectors.reddit_clips import _download_and_merge
+        result = _download_and_merge("http://169.254.169.254/video.mp4", "bad")
+        assert result is None
+
+    def test_download_file_returns_false_on_failure(self):
+        from src.collectors.reddit_clips import _download_file
+        with patch("src.collectors.reddit_clips.httpx.Client") as mock_cls:
+            mock_client = MagicMock()
+            mock_client.get.side_effect = Exception("network error")
+            mock_ctx = MagicMock()
+            mock_ctx.__enter__ = MagicMock(return_value=mock_client)
+            mock_ctx.__exit__ = MagicMock(return_value=None)
+            mock_cls.return_value = mock_ctx
+            result = _download_file("https://v.redd.it/abc/DASH_720.mp4", "/tmp/test.mp4")
+        assert result is False
+
+    def test_copy_file_returns_none_on_failure(self):
+        from src.collectors.reddit_clips import _copy_file
+        result = _copy_file("/nonexistent/src.mp4", "/nonexistent/dest.mp4")
+        assert result is None
+
+    def test_download_single_blocks_unsafe_url(self):
+        from src.collectors.reddit_clips import _download_single
+        result = _download_single("http://localhost/evil.mp4", "test")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_download_reddit_video_catches_exceptions(self):
+        from src.collectors.reddit_clips import _download_reddit_video
+        with patch("src.collectors.reddit_clips._download_and_merge", side_effect=Exception("ffmpeg crash")):
+            result = await _download_reddit_video("https://v.redd.it/x/DASH_720.mp4", "test")
+        assert result is None
+
+    def test_download_and_merge_no_audio_match(self):
+        """When the URL doesn't match the v.redd.it audio pattern, fall back to single download."""
+        from src.collectors.reddit_clips import _download_and_merge
+        with patch("src.collectors.reddit_clips._download_single", return_value="/tmp/video.mp4"):
+            result = _download_and_merge("https://example.com/plain_video.mp4", "test")
+        assert result == "/tmp/video.mp4"
+
+    def test_download_and_merge_video_download_fails(self):
+        from src.collectors.reddit_clips import _download_and_merge
+        with patch("src.collectors.reddit_clips._download_file", return_value=False):
+            result = _download_and_merge("https://v.redd.it/abc123/DASH_720.mp4", "test")
+        assert result is None
+
+    def test_download_and_merge_no_audio_copies_video(self):
+        """When audio download fails, should copy video-only file."""
+        from src.collectors.reddit_clips import _download_and_merge
+        import tempfile, os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Mock _download_file: True for video, False for audio
+            call_count = 0
+            def mock_download(url, dest):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    # Create a fake video file
+                    with open(dest, "wb") as f:
+                        f.write(b"fake video data")
+                    return True
+                return False  # audio fails
+
+            with (
+                patch("src.collectors.reddit_clips._download_file", side_effect=mock_download),
+                patch("src.collectors.reddit_clips._copy_file", return_value="/tmp/output.mp4"),
+                patch("src.collectors.reddit_clips.MEDIA_DIR", Path(tmpdir)),
+            ):
+                result = _download_and_merge("https://v.redd.it/abc123/DASH_720.mp4", "test_id")
+
+            assert result == "/tmp/output.mp4"
+
+
+class TestQualityGateDailyCap:
+    """Test the _within_daily_cap DB query."""
+
+    def test_within_daily_cap_under_limit(self):
+        import sqlite3
+        from pathlib import Path
+        from src.poster.quality_gate import _within_daily_cap
+
+        schema = Path(__file__).parent.parent / "src" / "database" / "schema.sql"
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(schema.read_text(encoding="utf-8"))
+        conn.commit()
+
+        with patch("src.poster.quality_gate.get_db") as mock_db:
+            from contextlib import contextmanager
+            @contextmanager
+            def _ctx():
+                try:
+                    yield conn
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    raise
+            mock_db.side_effect = _ctx
+            result = _within_daily_cap("rocketleague", "reddit_clip", 3)
+        assert result is True
 
 
 class TestFetchHotPosts:
