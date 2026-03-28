@@ -169,7 +169,7 @@ def post_next(niche: str, client: TwitterClient) -> bool:
         else:
             logger.info(f"[{niche}] breaking news (p1) — bypassing window + rate limit")
 
-        # Dispatch: retweet signal vs normal tweet
+        # Dispatch: retweet signal vs quote tweet vs normal tweet
         if text.startswith("RETWEET:"):
             original_id = text.split(":", 1)[1].strip()
             if not original_id.isdigit():
@@ -181,6 +181,27 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 return True
             else:
                 mark_failed(conn, queue_id, f"retweet {original_id} failed")
+                _check_failure_alert(niche)
+                return False
+
+        if text.startswith("QUOTE:"):
+            # Format: QUOTE:{tweet_id}:{commentary text}
+            remainder = text[len("QUOTE:"):]
+            sep_idx = remainder.find(":")
+            if sep_idx == -1:
+                mark_failed(conn, queue_id, f"malformed QUOTE signal: {text[:60]!r}")
+                return False
+            original_id = remainder[:sep_idx].strip()
+            commentary = remainder[sep_idx + 1:].strip()
+            if not original_id.isdigit() or not commentary:
+                mark_failed(conn, queue_id, f"invalid QUOTE id/text: {original_id!r}")
+                return False
+            new_id = client.quote_tweet(original_id, commentary)
+            if new_id:
+                mark_posted(conn, queue_id, new_id)
+                return True
+            else:
+                mark_failed(conn, queue_id, f"quote-tweet {original_id} failed")
                 _check_failure_alert(niche)
                 return False
 

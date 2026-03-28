@@ -93,6 +93,29 @@ class TwitterClient:
             logger.error(f"[{self.niche}] failed to retweet {tweet_id}: {exc}")
             return False
 
+    def quote_tweet(self, tweet_id: str, text: str) -> str | None:
+        """
+        Post a quote tweet (text + embedded original tweet).
+        Returns the new tweet ID on success, None on failure.
+        """
+        if self.dry_run:
+            logger.info(
+                f"[{self.niche}] DRY RUN quote tweet of {tweet_id}:\n"
+                f"{'─' * 40}\n{text}\n{'─' * 40}"
+            )
+            return "dry_run_qt_id"
+        try:
+            response = self._client.create_tweet(
+                text=text,
+                quote_tweet_id=tweet_id,
+            )
+            new_id = str(response.data["id"])
+            logger.success(f"[{self.niche}] quote-tweeted {tweet_id} → {new_id}")
+            return new_id
+        except tweepy.TweepyException as exc:
+            logger.error(f"[{self.niche}] failed to quote-tweet {tweet_id}: {exc}")
+            return None
+
     # ── Media ──────────────────────────────────────────────────────────────────
 
     def _upload_media(self, media_path: str, retries: int = 2) -> list[str] | None:
