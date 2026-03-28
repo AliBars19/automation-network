@@ -152,11 +152,15 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                     continue
 
             priority   = _PRIORITY.get(item.content_type, _DEFAULT_PRIORITY)
-            # Run blocking I/O (HTTP download + Pillow resize) off the event loop
-            media_path = (
-                await asyncio.to_thread(prepare_media, item.image_url)
-                if item.image_url else None
-            )
+            # Reddit clips carry their own pre-downloaded video in metadata
+            reddit_media = item.metadata.get("media_path", "")
+            if reddit_media and reddit_media.endswith(".mp4"):
+                media_path = reddit_media
+            elif item.image_url:
+                # Run blocking I/O (HTTP download + Pillow resize) off the event loop
+                media_path = await asyncio.to_thread(prepare_media, item.image_url)
+            else:
+                media_path = None
             add_to_queue(
                 conn, niche, tweet_text, content_id,
                 media_path=media_path, priority=priority,

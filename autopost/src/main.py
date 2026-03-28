@@ -29,6 +29,7 @@ from src.collectors.apis.gdbrowser import GDBrowserCollector
 from src.collectors.apis.github import GitHubCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
 from src.collectors.apis.rl_stats import RLStatsCollector
+from src.collectors.reddit_clips import RedditClipCollector
 from src.collectors.rss import RSSCollector
 from src.collectors.scraper import ScraperCollector
 from src.collectors.twitter_monitor import TwitterMonitorCollector
@@ -77,6 +78,8 @@ def _make_collector(source_id: int, type_: str, config: dict, niche: str):
         return TwitterMonitorCollector(source_id, config, niche)
     if type_ == "youtube":
         return YouTubeCollector(source_id, config, niche)
+    if type_ == "reddit_clips":
+        return RedditClipCollector(source_id, config, niche)
     if type_ == "api":
         cls = _API_MAP.get(config.get("collector", ""))
         if cls:

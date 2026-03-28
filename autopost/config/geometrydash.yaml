@@ -171,6 +171,14 @@ sources:
     channel_id: UCCj0f5y47A94_dahjTbem-A
     poll_interval: 1800
 
+  # ── Reddit clips (community content) ─────────────────────────────────────
+
+  - name: "Reddit r/geometrydash clips"
+    type: reddit_clips
+    subreddit: geometrydash
+    min_score: 400
+    poll_interval: 1800
+
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
   min_interval_seconds: 1200

@@ -156,6 +156,14 @@ sources:
     channel_id: UCuRS9KcqyOamnYjd6zOKiFQ
     poll_interval: 1800
 
+  # ── Reddit clips (community content) ─────────────────────────────────────
+
+  - name: "Reddit r/RocketLeague clips"
+    type: reddit_clips
+    subreddit: RocketLeague
+    min_score: 500
+    poll_interval: 1800
+
 # ── Posting schedule ───────────────────────────────────────────────────────────
 posting:
   min_interval_seconds: 1200

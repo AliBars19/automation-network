@@ -146,7 +146,8 @@ class TwitterClient:
     # ── Media ──────────────────────────────────────────────────────────────────
 
     def _upload_media(self, media_path: str, retries: int = 2) -> list[str] | None:
-        """Upload an image via v1.1 API and return a list with one media_id.
+        """Upload an image or video via v1.1 API and return a list with one media_id.
+        Automatically detects video files (.mp4) and uses chunked upload.
         Retries on transient errors (429, 5xx) with exponential backoff."""
         import time
 
@@ -155,13 +156,24 @@ class TwitterClient:
             logger.warning(f"[{self.niche}] media file not found: {media_path}")
             return None
 
+        # Use chunked upload for video files
+        is_video = path.suffix.lower() in (".mp4", ".mov", ".webm")
+        media_category = "tweet_video" if is_video else "tweet_image"
+
         for attempt in range(retries + 1):
             try:
-                media = self._api.media_upload(
-                    filename=str(path),
-                    media_category="tweet_image",
-                )
-                logger.debug(f"[{self.niche}] uploaded media {media.media_id_string}")
+                if is_video:
+                    media = self._api.chunked_upload(
+                        filename=str(path),
+                        media_category=media_category,
+                        wait_for_async_finalize=True,
+                    )
+                else:
+                    media = self._api.media_upload(
+                        filename=str(path),
+                        media_category=media_category,
+                    )
+                logger.debug(f"[{self.niche}] uploaded {'video' if is_video else 'image'} {media.media_id_string}")
                 return [media.media_id_string]
             except tweepy.TweepyException as exc:
                 exc_str = str(exc).lower()
