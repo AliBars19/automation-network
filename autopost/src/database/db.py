@@ -153,10 +153,18 @@ def mark_posted(conn: sqlite3.Connection, queue_id: int, tweet_id: str) -> None:
         (now, queue_id),
     )
     row = conn.execute("SELECT * FROM tweet_queue WHERE id = ?", (queue_id,)).fetchone()
+    # Try to get content_type from raw_content if available
+    content_type = ""
+    if row["raw_content_id"]:
+        rc = conn.execute(
+            "SELECT content_type FROM raw_content WHERE id = ?", (row["raw_content_id"],)
+        ).fetchone()
+        if rc:
+            content_type = rc["content_type"]
     conn.execute(
-        """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
-           VALUES (?, ?, ?, ?, ?)""",
-        (queue_id, row["niche"], tweet_id, row["tweet_text"], now),
+        """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, content_type, posted_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (queue_id, row["niche"], tweet_id, row["tweet_text"], content_type, now),
     )
 
 

@@ -59,8 +59,10 @@ CREATE TABLE IF NOT EXISTS post_log (
     niche          TEXT    NOT NULL,
     tweet_id       TEXT,                            -- X tweet ID on success, NULL on failure
     tweet_text     TEXT    NOT NULL,
+    content_type   TEXT    NOT NULL DEFAULT '',      -- for feedback analysis
     posted_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    error          TEXT                             -- error message if failed
+    error          TEXT,                             -- error message if failed
+    engagement     TEXT    NOT NULL DEFAULT '{}'     -- JSON: {"impressions": 0, "likes": 0, "retweets": 0}
 );
 
 -- ── Source error log ──────────────────────────────────────────────────────────
