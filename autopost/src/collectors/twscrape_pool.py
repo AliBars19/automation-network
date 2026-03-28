@@ -198,7 +198,7 @@ async def _fetch_query_ids(auth_token: str, ct0: str) -> dict[str, str]:
                 follow_redirects=True,
             )
             js_urls = re.findall(
-                r"https://abs\.twimg\.com/responsive-web/client-web[^\"]+\.js",
+                r"https://abs\.twimg\.com/responsive-web/client-web/[\w.\-/]+\.js",
                 resp.text,
             )
             if not js_urls:

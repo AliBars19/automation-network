@@ -286,7 +286,9 @@ def _split_url(text: str) -> tuple[str, str | None]:
         return text, None
 
     last_url = urls[-1]
-    stripped = text.replace(last_url, "").strip().rstrip("\n")
+    # Use rfind to replace only the LAST occurrence (str.replace hits all)
+    pos = text.rfind(last_url)
+    stripped = (text[:pos] + text[pos + len(last_url):]).strip().rstrip("\n")
 
     # Don't split if the remaining text is too short to stand alone
     if len(stripped) < 30:

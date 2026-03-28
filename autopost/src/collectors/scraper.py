@@ -86,9 +86,14 @@ async def _fetch(url: str) -> str | None:
         return None
 
 
+_BLOCKED_HOSTS = {"localhost", "0.0.0.0", "::1", "0x7f000001", "metadata.google.internal"}
+
+
 def _is_safe_url(url: str) -> bool:
-    """Reject URLs targeting private/link-local IPs (SSRF prevention)."""
+    """Reject URLs targeting private/link-local IPs (SSRF prevention).
+    Also resolves hostnames via DNS to catch rebinding and hex/decimal IPs."""
     import ipaddress
+    import socket
     from urllib.parse import urlparse
 
     try:
@@ -96,13 +101,24 @@ def _is_safe_url(url: str) -> bool:
         if parsed.scheme not in ("http", "https"):
             return False
         host = parsed.hostname or ""
-        if host in ("169.254.169.254", "metadata.google.internal"):
+        if not host:
+            return False
+        if host.lower() in _BLOCKED_HOSTS:
+            return False
+        if host == "169.254.169.254":
             return False
         try:
             addr = ipaddress.ip_address(host)
             if addr.is_private or addr.is_link_local or addr.is_loopback:
                 return False
         except ValueError:
+            pass
+        try:
+            resolved = socket.gethostbyname(host)
+            addr = ipaddress.ip_address(resolved)
+            if addr.is_private or addr.is_link_local or addr.is_loopback:
+                return False
+        except (socket.gaierror, ValueError):
             pass
         return True
     except Exception:

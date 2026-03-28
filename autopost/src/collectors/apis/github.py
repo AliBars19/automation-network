@@ -10,12 +10,15 @@ Pre-releases and draft releases are skipped — only stable releases are queued.
 
 API reference: https://docs.github.com/en/rest/releases/releases
 """
+import re
+
 import httpx
 from loguru import logger
 
 from src.collectors.base import BaseCollector, RawContent
 
 _BASE_URL  = "https://api.github.com"
+_REPO_RE   = re.compile(r"^[\w.\-]+/[\w.\-]+$")
 _HEADERS   = {
     "Accept":     "application/vnd.github+json",
     "User-Agent": "AutoPost/1.0",
@@ -85,6 +88,9 @@ class GitHubCollector(BaseCollector):
 # ── API helper ────────────────────────────────────────────────────────────────
 
 async def _fetch_releases(repo: str) -> list[dict]:
+    if not _REPO_RE.fullmatch(repo):
+        logger.warning(f"[GitHub] invalid repo format: {repo!r}")
+        return []
     async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as client:
         try:
             resp = await client.get(f"{_BASE_URL}/repos/{repo}/releases")
