@@ -111,8 +111,9 @@ class RedditClipCollector(BaseCollector):
             post_id = data.get("id", "")
             thumbnail = data.get("thumbnail", "")
 
-            # Download and merge video + audio
-            media_path = await _download_reddit_video(video_url, post_id)
+            # Download video — use permalink URL (yt-dlp handles v.redd.it natively)
+            reddit_url = f"https://www.reddit.com{permalink}" if permalink else video_url
+            media_path = await _download_reddit_video(reddit_url, post_id)
 
             age_hours = (datetime.now(timezone.utc) - created_dt).total_seconds() / 3600
 
@@ -144,85 +145,89 @@ class RedditClipCollector(BaseCollector):
         return items
 
 
-# ── Reddit OAuth fetch via asyncpraw ─────────────────────────────────────────
+# ── Reddit fetch via cookies ─────────────────────────────────────────────────
+
+_REDDIT_COOKIES_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "reddit_cookies.txt"
+
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
 
 async def _fetch_hot_posts(subreddit: str, limit: int = 25) -> list[dict]:
-    """Fetch hot posts from a subreddit using Reddit's OAuth API.
+    """Fetch hot posts from a subreddit using cookie-authenticated JSON.
 
-    Uses asyncpraw (oauth.reddit.com) which works from datacenter IPs
-    unlike the unauthenticated .json endpoints that Reddit blocks.
-    Returns posts in the same dict format the collector expects.
+    Reddit blocks unauthenticated requests from datacenter IPs.
+    Browser cookies (exported via cookies.txt extension) bypass this.
     """
-    try:
-        import asyncpraw
-    except ImportError:
-        logger.error("[RedditClips] asyncpraw not installed — pip install asyncpraw")
-        return []
-
-    client_id = os.environ.get("REDDIT_CLIENT_ID", "")
-    client_secret = os.environ.get("REDDIT_CLIENT_SECRET", "")
-
-    if not client_id or not client_secret:
+    if not _REDDIT_COOKIES_PATH.exists():
         logger.warning(
-            "[RedditClips] REDDIT_CLIENT_ID/SECRET not set — Reddit clips disabled. "
-            "Register at https://www.reddit.com/prefs/apps (script type)"
+            "[RedditClips] No reddit_cookies.txt found — Reddit clips disabled. "
+            "Export cookies from your browser to data/reddit_cookies.txt"
         )
         return []
+
+    url = f"https://www.reddit.com/r/{subreddit}/hot.json"
+    if not is_safe_url(url):
+        return []
+
+    # Load cookies from Netscape cookies.txt into a dict
+    cookies = _load_cookies_txt(_REDDIT_COOKIES_PATH)
 
     try:
-        reddit = asyncpraw.Reddit(
-            client_id=client_id,
-            client_secret=client_secret,
-            user_agent=_HEADERS["User-Agent"],
-        )
-
-        sub = await reddit.subreddit(subreddit)
-        posts: list[dict] = []
-
-        async for submission in sub.hot(limit=limit):
-            # Convert asyncpraw Submission to the dict format our collector expects
-            video_data = {}
-            if submission.is_video and hasattr(submission, "media") and submission.media:
-                reddit_video = submission.media.get("reddit_video", {})
-                video_data = {
-                    "fallback_url": reddit_video.get("fallback_url", ""),
-                    "duration": reddit_video.get("duration", 0),
-                }
-
-            posts.append({
-                "data": {
-                    "id": submission.id,
-                    "title": submission.title,
-                    "score": submission.score,
-                    "is_video": submission.is_video,
-                    "author": str(submission.author) if submission.author else "deleted",
-                    "created_utc": submission.created_utc,
-                    "permalink": submission.permalink,
-                    "thumbnail": getattr(submission, "thumbnail", ""),
-                    "media": {
-                        "reddit_video": video_data,
-                    } if submission.is_video else None,
-                }
-            })
-
-        await reddit.close()
-        logger.info(f"[RedditClips] r/{subreddit} OAuth → {len(posts)} posts")
-        return posts
-
-    except Exception as exc:
-        logger.warning(f"[RedditClips] r/{subreddit} OAuth fetch failed: {exc}")
+        async with httpx.AsyncClient(
+            timeout=15,
+            headers={"User-Agent": _BROWSER_UA},
+            cookies=cookies,
+        ) as client:
+            resp = await client.get(url, params={"limit": limit, "raw_json": 1})
+            resp.raise_for_status()
+            data = resp.json()
+            posts = data.get("data", {}).get("children", [])
+            logger.info(f"[RedditClips] r/{subreddit} → {len(posts)} posts (cookie auth)")
+            return posts
+    except httpx.HTTPError as exc:
+        logger.warning(f"[RedditClips] r/{subreddit} fetch failed: {exc}")
         return []
+
+
+def _load_cookies_txt(path: Path) -> dict[str, str]:
+    """Parse a Netscape cookies.txt file into a {name: value} dict."""
+    cookies: dict[str, str] = {}
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                cookies[parts[5]] = parts[6]
+    except Exception:
+        pass
+    return cookies
 
 
 # ── Video download + merge ───────────────────────────────────────────────────
 
 async def _download_reddit_video(video_url: str, post_id: str) -> str | None:
     """
-    Download a v.redd.it video and merge with its audio track using ffmpeg.
-    Returns the path to the merged mp4, or None on failure.
+    Download a Reddit video using yt-dlp (handles v.redd.it natively).
+    Falls back to manual download+merge if yt-dlp is not available.
+    Returns the path to the mp4, or None on failure.
     """
     import asyncio
 
+    # Prefer yt-dlp — handles audio merge, cookies, and format selection
+    try:
+        from src.collectors.video_clipper import clip_reddit_video
+        clip = await asyncio.to_thread(clip_reddit_video, video_url, post_id)
+        if clip:
+            return clip
+    except Exception:
+        pass
+
+    # Fallback: manual download + ffmpeg merge
     try:
         return await asyncio.to_thread(_download_and_merge, video_url, post_id)
     except Exception as exc:
