@@ -121,6 +121,7 @@ class TestQuoteTweetQueue:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -141,6 +142,7 @@ class TestQuoteTweetQueue:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -160,6 +162,7 @@ class TestQuoteTweetQueue:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -177,6 +180,7 @@ class TestQuoteTweetQueue:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -195,6 +199,7 @@ class TestQuoteTweetQueue:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
             patch("src.poster.queue._check_failure_alert"),
         ):
             result = post_next("rocketleague", client)

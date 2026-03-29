@@ -379,6 +379,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -420,6 +421,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=False),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -433,9 +435,10 @@ class TestPostNext:
         client.post_tweet.return_value = "tweet_123"
 
         with (
-            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
             patch("src.poster.queue.within_monthly_limit", return_value=True),
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
             patch("src.poster.queue.within_posting_window") as mock_win,
             patch("src.poster.queue.can_post") as mock_can,
         ):
@@ -458,6 +461,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -478,6 +482,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
             patch("src.poster.queue._check_failure_alert"),
         ):
             result = post_next("rocketleague", client)
@@ -499,6 +504,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 
@@ -520,6 +526,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
             patch("src.poster.queue._check_failure_alert"),
         ):
             result = post_next("rocketleague", client)
@@ -535,9 +542,10 @@ class TestPostNext:
         client = MagicMock()
 
         with (
-            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
             patch("src.poster.queue.within_monthly_limit", return_value=True),
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=False),
         ):
@@ -558,6 +566,7 @@ class TestPostNext:
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
             patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
         ):
             result = post_next("rocketleague", client)
 

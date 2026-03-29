@@ -76,10 +76,19 @@ _DEFAULT_PRIORITY = 5
 
 # ── Pipeline: collect → format → enqueue ──────────────────────────────────────
 
+# Hard cap: never queue more than this many items per collector per cycle.
+# Prevents a broken collector from flooding the queue.
+_MAX_ITEMS_PER_CYCLE = 5
+
+
 async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
     """
     Run one collector pass and enqueue any new content.
     Returns the number of new tweets added to the queue.
+
+    Hard-capped at _MAX_ITEMS_PER_CYCLE items per cycle to prevent
+    any single collector from flooding the queue (which caused the
+    duplicate posting incident of 2026-03-28).
     """
     import asyncio
 
@@ -92,6 +101,13 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
     queued = 0
     with get_db() as conn:
         for item in items:
+            # Hard cap: stop queueing if we've hit the per-cycle limit
+            if queued >= _MAX_ITEMS_PER_CYCLE:
+                logger.info(
+                    f"[{niche}] hit per-cycle cap ({_MAX_ITEMS_PER_CYCLE}) — "
+                    f"remaining {len(items) - queued} items deferred to next cycle"
+                )
+                break
             content_id, is_new = insert_raw_content(conn, item)
             if not is_new:
                 continue  # already seen from this source — dedup
@@ -185,21 +201,51 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
 
 # ── Poster: dequeue → post ────────────────────────────────────────────────────
 
+# Absolute safety net: never post more than this many tweets in a 30-min window.
+# This is the final guard against any duplication or queue-flooding bug.
+_MAX_POSTS_PER_30MIN = 3
+
+
+def _posts_in_last_30min(niche: str) -> int:
+    """Count tweets posted for this niche in the last 30 minutes."""
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT COUNT(*) AS cnt FROM post_log
+               WHERE niche = ? AND tweet_id IS NOT NULL
+                 AND posted_at >= datetime('now', '-30 minutes')""",
+            (niche,),
+        ).fetchone()
+    return row["cnt"]
+
+
 def post_next(niche: str, client: TwitterClient) -> bool:
     """
     Post the next queued tweet for `niche`.
     Returns True if a tweet was posted (or dry-run logged), False otherwise.
 
+    Safety layers (all enforced, never bypassed):
+      1. Monthly cap (1,500/month)
+      2. Failure backoff (exponential)
+      3. 30-minute hard cap (max 3 posts per 30 min per niche)
+
     Priority-1 items (breaking news) bypass:
-      - The posting window (08:00–22:00 UTC) — posts at any hour
+      - The posting window (14:00–04:00 UTC) — posts at any hour
       - The 20-min minimum gap — posts immediately
-    The monthly cap and failure backoff are always enforced regardless of priority.
     """
     if not within_monthly_limit(niche):
         return False
 
     # Always respect failure backoff — if the API is down, hammering won't help
     if not failure_backoff_ok(niche):
+        return False
+
+    # Hard safety net: never exceed 3 posts in any 30-minute window
+    recent = _posts_in_last_30min(niche)
+    if recent >= _MAX_POSTS_PER_30MIN:
+        logger.warning(
+            f"[{niche}] safety cap hit: {recent} posts in last 30 min "
+            f"(max {_MAX_POSTS_PER_30MIN}) — throttling"
+        )
         return False
 
     with get_db() as conn:

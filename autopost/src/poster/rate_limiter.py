@@ -54,11 +54,13 @@ def can_post(niche: str) -> bool:
     if last is None:
         return True
     elapsed = (datetime.now(timezone.utc) - last).total_seconds()
-    min_gap = MIN_INTERVAL_BURST_S if _is_burst_mode(niche) else MIN_INTERVAL_S
+    # Burst mode disabled — contributed to the 2026-03-28 duplicate posting
+    # incident by reducing the posting gap from 20min to 5min. The 30-min
+    # hard cap in post_next() is the safer approach for high-volume days.
+    min_gap = MIN_INTERVAL_S
     if elapsed < min_gap:
         logger.debug(
             f"[{niche}] rate limited — {int(min_gap - elapsed)}s remaining"
-            f"{' (burst mode)' if min_gap == MIN_INTERVAL_BURST_S else ''}"
         )
         return False
     return True

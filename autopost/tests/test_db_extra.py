@@ -116,17 +116,16 @@ class TestIsSimilarStory:
         self._insert_queued(conn, "rocketleague", "RLCS Season 14 starts now with new maps!")
         assert is_similar_story(conn, "RLCS Season 14 begins today!", "rocketleague", threshold=0.95) is False
 
-    def test_only_queued_status_checked(self):
-        """Rows with status != 'queued' should not be compared."""
+    def test_posted_rows_also_checked(self):
+        """Posted rows should also be compared to prevent re-posting similar content."""
         conn = _make_db()
-        # Insert a posted row with identical text
         conn.execute(
             "INSERT INTO tweet_queue (niche, tweet_text, status) VALUES (?, ?, 'posted')",
             ("rocketleague", "RLCS Season 14 starts now!"),
         )
         conn.commit()
-        # Should not match posted rows
-        assert is_similar_story(conn, "RLCS Season 14 starts now!", "rocketleague") is False
+        # Should match posted rows too (prevents duplicate content)
+        assert is_similar_story(conn, "RLCS Season 14 starts now!", "rocketleague") is True
 
     def test_custom_threshold_parameter(self):
         """With a low threshold (0.1), near-anything should match."""

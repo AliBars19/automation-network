@@ -224,8 +224,8 @@ def is_similar_story(
     conn: sqlite3.Connection,
     tweet_text: str,
     niche: str,
-    threshold: float = 0.65,
-    hours: int = 24,
+    threshold: float = 0.45,
+    hours: int = 48,
 ) -> bool:
     """
     Return True if tweet_text is very similar to any tweet queued in the
@@ -238,7 +238,7 @@ def is_similar_story(
     cutoff = _hours_ago(hours)
     rows = conn.execute(
         """SELECT tweet_text FROM tweet_queue
-           WHERE niche = ? AND created_at >= ? AND status = 'queued'""",
+           WHERE niche = ? AND created_at >= ? AND status IN ('queued', 'posted')""",
         (niche, cutoff),
     ).fetchall()
     needle = tweet_text.lower()
