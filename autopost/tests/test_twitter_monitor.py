@@ -17,7 +17,7 @@ from src.collectors.twitter_monitor import TwitterMonitorCollector, _extract_twe
 
 def _make_tweet_dict(
     tweet_id: str = "100",
-    text: str = "Rocket League Season 14 is here!",
+    text: str = "Rocket League Season 14 is here with big new features and changes!",
     created_at: str | None = None,
     is_reply_to: str | None = None,
     is_retweet: bool = False,
@@ -142,7 +142,7 @@ class TestCollectFiltering:
 
     @pytest.mark.asyncio
     async def test_normal_tweet_included(self):
-        tweet = _make_tweet_dict(text="New content drop!")
+        tweet = _make_tweet_dict(text="New content drop with big changes coming this season!")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector()
         p1, p2 = _patches(resp)
@@ -214,7 +214,7 @@ class TestCollectFiltering:
 
     @pytest.mark.asyncio
     async def test_tweet_no_date_passes_through(self):
-        tweet = _make_tweet_dict(text="No date", created_at="")
+        tweet = _make_tweet_dict(text="Major update coming with no confirmed date yet", created_at="")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector()
         p1, p2 = _patches(resp)
@@ -247,7 +247,7 @@ class TestCollectRawContentFields:
     @pytest.mark.asyncio
     async def test_non_retweet_source_gets_monitored_tweet(self):
         """Non-official accounts (no retweet flag) get monitored_tweet type, no retweet_id."""
-        tweet = _make_tweet_dict(tweet_id="42", text="Season 14 live!", screen_name="SomePlayer")
+        tweet = _make_tweet_dict(tweet_id="42", text="Rocket League Season 14 is now live with new features!", screen_name="SomePlayer")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(retweet=False)
         p1, p2 = _patches(resp)
@@ -269,7 +269,7 @@ class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
     async def test_gd_non_retweet_content_type(self):
-        tweet = _make_tweet_dict(text="GD 2.3 coming!")
+        tweet = _make_tweet_dict(text="Geometry Dash 2.3 is officially coming soon!")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(niche="geometrydash", retweet=False)
         p1, p2 = _patches(resp)
@@ -280,7 +280,7 @@ class TestCollectRawContentFields:
     @pytest.mark.asyncio
     async def test_url_expansion(self):
         tweet = _make_tweet_dict(
-            text="Check this https://t.co/abc123",
+            text="Check this amazing new content update https://t.co/abc123",
             urls=[{"url": "https://t.co/abc123", "expanded_url": "https://rocketleague.com/news"}],
         )
         resp = _wrap_in_timeline([tweet])
@@ -292,7 +292,7 @@ class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
     async def test_trailing_tco_stripped(self):
-        tweet = _make_tweet_dict(text="Look at this https://t.co/xyz999")
+        tweet = _make_tweet_dict(text="Look at this incredible Rocket League play https://t.co/xyz999")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector()
         p1, p2 = _patches(resp)
@@ -302,7 +302,7 @@ class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
     async def test_image_from_extended_entities(self):
-        tweet = _make_tweet_dict(text="Media tweet")
+        tweet = _make_tweet_dict(text="Check out this amazing gameplay screenshot and clip")
         tweet["legacy"]["extended_entities"] = {
             "media": [{"media_url_https": "https://pbs.twimg.com/media/img.jpg", "type": "photo"}]
         }
@@ -315,7 +315,7 @@ class TestCollectRawContentFields:
 
     @pytest.mark.asyncio
     async def test_multiple_tweets(self):
-        tweets = [_make_tweet_dict(tweet_id=str(i), text=f"Update {i}") for i in range(1, 6)]
+        tweets = [_make_tweet_dict(tweet_id=str(i), text=f"Major Rocket League update number {i} with lots of new content") for i in range(1, 6)]
         resp = _wrap_in_timeline(tweets)
         collector = _make_collector()
         p1, p2 = _patches(resp)
@@ -351,7 +351,7 @@ class TestCollectEdgeCases:
     @pytest.mark.asyncio
     async def test_unparseable_date_lets_tweet_through(self):
         """A completely invalid created_at string should not drop the tweet."""
-        tweet = _make_tweet_dict(text="Survive bad date", created_at="not-a-real-date")
+        tweet = _make_tweet_dict(text="This important announcement will survive a bad date parse", created_at="not-a-real-date")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector()
         p1, p2 = _patches(resp)
@@ -363,7 +363,7 @@ class TestCollectEdgeCases:
     @pytest.mark.asyncio
     async def test_broken_extended_entities_does_not_raise(self):
         """If extended_entities is a non-dict type, image_url should silently stay empty."""
-        tweet = _make_tweet_dict(text="Broken media")
+        tweet = _make_tweet_dict(text="This tweet has broken media entities attached")
         # Replace extended_entities with a scalar, triggering AttributeError in .get()
         tweet["legacy"]["extended_entities"] = "not-a-dict"
         resp = _wrap_in_timeline([tweet])
@@ -377,7 +377,7 @@ class TestCollectEdgeCases:
     @pytest.mark.asyncio
     async def test_monitored_tweet_metadata_has_account_and_tweet_url(self):
         """Non-retweet items must still carry account and tweet_url in metadata."""
-        tweet = _make_tweet_dict(tweet_id="77", text="Community update", screen_name="SomeGDPlayer")
+        tweet = _make_tweet_dict(tweet_id="77", text="Big community update from the GD modding scene", screen_name="SomeGDPlayer")
         resp = _wrap_in_timeline([tweet])
         collector = _make_collector(niche="geometrydash", retweet=False)
         p1, p2 = _patches(resp)
@@ -402,7 +402,7 @@ class TestCollectEdgeCases:
     @pytest.mark.asyncio
     async def test_screen_name_falls_back_to_username_when_core_absent(self):
         """When core user_results is empty, screen_name falls back to self.username."""
-        tweet = _make_tweet_dict(tweet_id="55", text="No core block")
+        tweet = _make_tweet_dict(tweet_id="55", text="This tweet has no core block in the response data")
         # Remove the core entirely
         tweet["core"] = {}
         resp = _wrap_in_timeline([tweet])

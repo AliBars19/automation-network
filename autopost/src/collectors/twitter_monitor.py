@@ -176,6 +176,19 @@ class TwitterMonitorCollector(BaseCollector):
             if text.startswith("RT @"):
                 continue
 
+            # Skip low-quality tweets: emoji-only, too short, or no substance
+            import re as _tweet_re
+            text_no_urls = _tweet_re.sub(r"https?://\S+", "", text).strip()
+            text_no_emoji = _tweet_re.sub(
+                r"[\U0001F600-\U0001FAFF\U00002600-\U000027BF\u200d\ufe0f]+", "", text_no_urls
+            ).strip()
+            if len(text_no_emoji) < 20:
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"too short/emoji-only ({len(text_no_emoji)} chars) — skipping"
+                )
+                continue
+
             # Skip non-English tweets — both accounts target English audiences.
             # Check Twitter's lang field first, then text-based French detection.
             tweet_lang = legacy.get("lang", "")
