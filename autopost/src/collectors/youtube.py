@@ -145,6 +145,19 @@ class YouTubeCollector(BaseCollector):
 
             content_type = "youtube_video"
 
+            # Try to download a 30s clip if cookies are available.
+            # Falls back to thumbnail image if clip download fails.
+            video_clip_path = ""
+            try:
+                from src.collectors.video_clipper import clip_youtube_video, cookies_available
+                if cookies_available():
+                    import asyncio
+                    clip = await asyncio.to_thread(clip_youtube_video, video_url, video_id)
+                    if clip:
+                        video_clip_path = clip
+            except Exception:
+                pass  # clip is optional — fall back to thumbnail
+
             results.append(RawContent(
                 source_id    = self.source_id,
                 external_id  = video_id,
@@ -153,7 +166,7 @@ class YouTubeCollector(BaseCollector):
                 title        = title,
                 url          = video_url,
                 body         = description,
-                image_url    = thumbnail,
+                image_url    = thumbnail if not video_clip_path else "",
                 author       = channel,
                 score        = 0,
                 metadata     = {
@@ -161,6 +174,7 @@ class YouTubeCollector(BaseCollector):
                     "video_title": title,
                     "title":       title,
                     "url":         video_url,
+                    "media_path":  video_clip_path,
                 },
             ))
 
