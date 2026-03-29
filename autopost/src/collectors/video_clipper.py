@@ -41,11 +41,17 @@ def clip_youtube_video(video_url: str, video_id: str) -> str | None:
         return output_path
 
     try:
+        env = os.environ.copy()
+        env["PATH"] = f"/root/.deno/bin:{env.get('PATH', '')}"
+
         cmd = [
             "yt-dlp",
             "--download-sections", f"*0-{_CLIP_DURATION}",
             "-f", f"bv*[height<={_MAX_HEIGHT}]+ba/b[height<={_MAX_HEIGHT}]",
             "--merge-output-format", "mp4",
+            "--remux-video", "mp4",
+            "--postprocessor-args", "ffmpeg:-c:v libx264 -c:a aac",
+            "--remote-components", "ejs:github",
             "--no-playlist",
             "--no-warnings",
             "--quiet",
@@ -54,7 +60,7 @@ def clip_youtube_video(video_url: str, video_id: str) -> str | None:
             video_url,
         ]
 
-        result = subprocess.run(cmd, capture_output=True, timeout=60, text=True)
+        result = subprocess.run(cmd, capture_output=True, timeout=120, text=True, env=env)
 
         if result.returncode != 0:
             stderr = result.stderr[:200] if result.stderr else "unknown error"
