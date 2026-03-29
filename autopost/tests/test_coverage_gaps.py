@@ -169,9 +169,9 @@ def _ctx(conn):
         raise
 
 
-class TestUrlSelfReply:
-    def test_url_posted_as_reply(self):
-        """When tweet has a URL, main tweet posts first, then URL as reply."""
+class TestUrlInlineTweet:
+    def test_url_stays_inline(self):
+        """URLs are posted inline (self-reply pattern was removed)."""
         conn = _make_db()
         conn.execute(
             "INSERT INTO tweet_queue (niche, tweet_text, priority, status) VALUES (?, ?, ?, 'queued')",
@@ -180,10 +180,10 @@ class TestUrlSelfReply:
         conn.commit()
 
         client = MagicMock()
-        client.post_tweet.return_value = "main_tweet_123"
+        client.post_tweet.return_value = "tweet_123"
 
         with (
-            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
             patch("src.poster.queue.within_monthly_limit", return_value=True),
             patch("src.poster.queue.failure_backoff_ok", return_value=True),
             patch("src.poster.queue.within_posting_window", return_value=True),
@@ -193,12 +193,10 @@ class TestUrlSelfReply:
             result = post_next("rocketleague", client)
 
         assert result is True
-        # Should have been called twice: main tweet + URL reply
-        assert client.post_tweet.call_count == 2
-        # Second call should have reply_to set
-        second_call = client.post_tweet.call_args_list[1]
-        assert second_call.kwargs.get("reply_to") == "main_tweet_123" or \
-               (len(second_call.args) > 0 or "reply_to" in second_call.kwargs)
+        # Single tweet posted with full text including URL
+        assert client.post_tweet.call_count == 1
+        call_text = client.post_tweet.call_args.kwargs.get("text", client.post_tweet.call_args[0][0] if client.post_tweet.call_args[0] else "")
+        assert "https://example.com/article" in call_text
 
 
 # ── scraper.py: SSRF guard and redirect handling (lines 63-64, 79-80, etc.) ─

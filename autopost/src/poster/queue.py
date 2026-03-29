@@ -309,16 +309,10 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 _check_failure_alert(niche)
                 return False
 
-        # Split URL into self-reply to avoid the algorithm's external link penalty.
-        # Post the main content as text (+ optional image), then reply with the URL.
-        main_text, url_reply = _split_url(text)
-        tweet_id = client.post_tweet(
-            text=main_text, media_path=row["media_path"]
-        )
-        if tweet_id and url_reply:
-            reply_id = client.post_tweet(text=url_reply, reply_to=tweet_id)
-            if not reply_id:
-                logger.warning(f"[{niche}] self-reply URL failed for tweet {tweet_id}")
+        # Post as a single tweet with URL inline. Self-reply URL pattern was
+        # removed because the reply tweets clutter the profile timeline as
+        # standalone naked links, which looks worse than the URL penalty.
+        tweet_id = client.post_tweet(text=text, media_path=row["media_path"])
         if tweet_id:
             mark_posted(conn, queue_id, tweet_id)
             return True
