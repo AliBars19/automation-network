@@ -26,6 +26,7 @@ from src.collectors.base import RawContent
 from src.collectors.apis.pointercrate import (
     PointercrateCollector,
     _fetch_demons,
+    _detect_first_victors,
     _classify,
 )
 
@@ -254,6 +255,290 @@ class TestPointercrateCollector:
         with patch("src.collectors.apis.pointercrate._fetch_demons", new_callable=AsyncMock, return_value=[demon]):
             result = await self._make_collector().collect()
         assert result[0].metadata["emoji"] == "🔺"
+
+    @pytest.mark.asyncio
+    async def test_first_victor_appended_to_results(self):
+        """collect() appends first_victor RawContent items returned by _detect_first_victors."""
+        demons = [_make_demon(position=5, demon_id=5)]
+        fv = {
+            "demon_id": 5,
+            "level": "Tartarus",
+            "player": "Zoink",
+            "position": 5,
+            "video": "https://youtube.com/watch?v=fv",
+        }
+        with (
+            patch("src.collectors.apis.pointercrate._fetch_demons", new_callable=AsyncMock, return_value=demons),
+            patch("src.collectors.apis.pointercrate._detect_first_victors", new_callable=AsyncMock, return_value=[fv]),
+        ):
+            result = await self._make_collector().collect()
+
+        # One demon item + one first_victor item
+        assert len(result) == 2
+        fv_item = next(r for r in result if r.content_type == "first_victor")
+        assert fv_item.external_id == "fv_5_Zoink"
+        assert fv_item.author == "Zoink"
+        assert fv_item.niche == "geometrydash"
+        assert fv_item.url == "https://youtube.com/watch?v=fv"
+        assert fv_item.metadata["level"] == "Tartarus"
+        assert fv_item.metadata["player"] == "Zoink"
+        assert fv_item.metadata["position"] == "5"
+
+    @pytest.mark.asyncio
+    async def test_first_victor_score_is_150_minus_position(self):
+        demons = [_make_demon(position=10, demon_id=10)]
+        fv = {"demon_id": 10, "level": "Slaughterhouse", "player": "xii", "position": 10, "video": ""}
+        with (
+            patch("src.collectors.apis.pointercrate._fetch_demons", new_callable=AsyncMock, return_value=demons),
+            patch("src.collectors.apis.pointercrate._detect_first_victors", new_callable=AsyncMock, return_value=[fv]),
+        ):
+            result = await self._make_collector().collect()
+        fv_item = next(r for r in result if r.content_type == "first_victor")
+        assert fv_item.score == 140  # 150 - 10
+
+    @pytest.mark.asyncio
+    async def test_no_first_victors_does_not_grow_result(self):
+        demons = [_make_demon(position=3, demon_id=3)]
+        with (
+            patch("src.collectors.apis.pointercrate._fetch_demons", new_callable=AsyncMock, return_value=demons),
+            patch("src.collectors.apis.pointercrate._detect_first_victors", new_callable=AsyncMock, return_value=[]),
+        ):
+            result = await self._make_collector().collect()
+        assert len(result) == 1
+        assert all(r.content_type != "first_victor" for r in result)
+
+    @pytest.mark.asyncio
+    async def test_collect_passes_first_50_demons_to_detect(self):
+        """_detect_first_victors should receive at most 50 demons."""
+        demons = [_make_demon(position=i, demon_id=i) for i in range(1, 76)]
+        captured: list = []
+
+        async def fake_detect(d):
+            captured.extend(d)
+            return []
+
+        with (
+            patch("src.collectors.apis.pointercrate._fetch_demons", new_callable=AsyncMock, return_value=demons),
+            patch("src.collectors.apis.pointercrate._detect_first_victors", side_effect=fake_detect),
+        ):
+            await self._make_collector().collect()
+
+        assert len(captured) == 50
+
+
+class TestDetectFirstVictors:
+    """Unit tests for the _detect_first_victors() helper."""
+
+    def _make_ctx(self, responses: list):
+        """Build a mock AsyncClient context manager that returns responses in order."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=responses)
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        return mock_ctx
+
+    @pytest.mark.asyncio
+    async def test_exactly_two_records_detects_first_victor(self):
+        """Two approved records (verifier + victor) → first victor detected."""
+        demon = _make_demon(position=3, name="Tartarus", verifier="Dolphy", demon_id=42)
+        records = [
+            {"player": {"name": "Dolphy"}, "video": None},
+            {"player": {"name": "Zoink"}, "video": "https://yt.com/watch?v=x"},
+        ]
+        resp = _make_httpx_response(200, records)
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert len(result) == 1
+        assert result[0]["player"] == "Zoink"
+        assert result[0]["demon_id"] == 42
+        assert result[0]["level"] == "Tartarus"
+        assert result[0]["position"] == 3
+        assert result[0]["video"] == "https://yt.com/watch?v=x"
+
+    @pytest.mark.asyncio
+    async def test_one_record_no_first_victor(self):
+        """Only 1 record (verifier alone) → no first victor."""
+        demon = _make_demon(position=1, name="Abyss of Darkness", verifier="Exen", demon_id=7)
+        records = [{"player": {"name": "Exen"}, "video": None}]
+        resp = _make_httpx_response(200, records)
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_zero_records_no_first_victor(self):
+        """Zero approved records → no first victor."""
+        demon = _make_demon(position=2, name="Bloodbath", verifier="Riot", demon_id=8)
+        resp = _make_httpx_response(200, [])
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_three_records_no_first_victor(self):
+        """Three or more records → no longer the very first victor, skip."""
+        demon = _make_demon(position=5, name="Slaughterhouse", verifier="Xii", demon_id=9)
+        records = [
+            {"player": {"name": "Xii"}, "video": None},
+            {"player": {"name": "Zoink"}, "video": None},
+            {"player": {"name": "Dolphy"}, "video": None},
+        ]
+        resp = _make_httpx_response(200, records)
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_missing_verifier_name_skips_demon(self):
+        """If verifier name cannot be determined, the demon is skipped."""
+        demon = {
+            "position": 3,
+            "name": "Mystery",
+            "verifier": None,
+            "publisher": None,
+            "video": "",
+            "thumbnail": "",
+            "id": 99,
+        }
+        records = [
+            {"player": {"name": "SomePlayer"}, "video": None},
+            {"player": {"name": "OtherPlayer"}, "video": None},
+        ]
+        resp = _make_httpx_response(200, records)
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_demon_with_id_zero_skipped(self):
+        """Demon with id=0 (missing id) should be skipped entirely."""
+        demon = _make_demon(position=1, demon_id=0)
+        mock_ctx = self._make_ctx([])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_non_200_status_continues_to_next_demon(self):
+        """A non-200 HTTP response for one demon does not crash the loop."""
+        demon_a = _make_demon(position=1, name="DemonA", verifier="VA", demon_id=10)
+        demon_b = _make_demon(position=2, name="DemonB", verifier="VB", demon_id=11)
+        records_b = [
+            {"player": {"name": "VB"}, "video": None},
+            {"player": {"name": "FirstPerson"}, "video": "https://yt.com/v"},
+        ]
+        resp_404 = _make_httpx_response(404, {})
+        resp_200 = _make_httpx_response(200, records_b)
+        mock_ctx = self._make_ctx([resp_404, resp_200])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon_a, demon_b])
+
+        # demon_a was skipped (404); demon_b was detected
+        assert len(result) == 1
+        assert result[0]["player"] == "FirstPerson"
+        assert result[0]["demon_id"] == 11
+
+    @pytest.mark.asyncio
+    async def test_exception_during_request_continues(self):
+        """A network exception on one demon should not abort processing of others."""
+        demon_a = _make_demon(position=1, name="DemonA", verifier="VA", demon_id=20)
+        demon_b = _make_demon(position=2, name="DemonB", verifier="VB", demon_id=21)
+        records_b = [
+            {"player": {"name": "VB"}, "video": None},
+            {"player": {"name": "Victor"}, "video": ""},
+        ]
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(
+            side_effect=[Exception("network failure"), _make_httpx_response(200, records_b)]
+        )
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon_a, demon_b])
+
+        assert len(result) == 1
+        assert result[0]["player"] == "Victor"
+
+    @pytest.mark.asyncio
+    async def test_limits_to_first_20_demons(self):
+        """_detect_first_victors processes at most 20 demons regardless of input size."""
+        demons = [_make_demon(position=i, demon_id=i) for i in range(1, 30)]
+        # Each demon gets a 200 with 1 record (no first victor) — only 20 calls expected
+        single_record = [{"player": {"name": "Verifier"}, "video": None}]
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=_make_httpx_response(200, single_record))
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            await _detect_first_victors(demons)
+
+        assert mock_client.get.call_count == 20
+
+    @pytest.mark.asyncio
+    async def test_first_victor_video_defaults_to_empty_string(self):
+        """When the victor's record has no video, the video field is an empty string."""
+        demon = _make_demon(position=4, name="Sakupen Hell", verifier="Noisia", demon_id=55)
+        records = [
+            {"player": {"name": "Noisia"}, "video": None},
+            {"player": {"name": "NewVictor"}, "video": None},
+        ]
+        resp = _make_httpx_response(200, records)
+        mock_ctx = self._make_ctx([resp])
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([demon])
+
+        assert result[0]["video"] == ""
+
+    @pytest.mark.asyncio
+    async def test_empty_demon_list_returns_empty(self):
+        """Calling with an empty list returns empty without any HTTP calls."""
+        mock_client = AsyncMock()
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.pointercrate.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _detect_first_victors([])
+
+        assert result == []
+        mock_client.get.assert_not_called()
+
+
+class TestPointercrateClassifyExtended:
+    """Additional _classify() tests covering boundary and extended positions."""
+
+    def test_position_74_is_level_verified(self):
+        assert _classify(74) == "level_verified"
+
+    def test_position_100_is_demon_list_update(self):
+        assert _classify(100) == "demon_list_update"
+
+    def test_position_999_is_demon_list_update(self):
+        assert _classify(999) == "demon_list_update"
 
 
 # ===========================================================================

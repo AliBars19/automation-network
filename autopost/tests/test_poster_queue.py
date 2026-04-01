@@ -14,6 +14,9 @@ from src.collectors.base import BaseCollector, RawContent
 from src.poster.queue import (
     _PRIORITY,
     _DEFAULT_PRIORITY,
+    _engagement_followup,
+    _retweet_context,
+    _split_url,
     collect_and_queue,
     post_next,
     skip_stale,
@@ -646,6 +649,969 @@ class TestSkipStale:
             count = skip_stale("rocketleague", max_age_hours=6)
 
         assert count == 0
+
+
+# ── _split_url() ─────────────────────────────────────────────────────────────
+
+class TestSplitUrl:
+
+    def test_splits_url_from_long_text(self):
+        """URL at the end of a long enough tweet should be extracted."""
+        text = "Season 14 of Rocket League is now live with all-new cosmetics and ranking changes https://rocketleague.com/news/s14"
+        main, url = _split_url(text)
+        assert url == "https://rocketleague.com/news/s14"
+        assert "https://" not in main
+        assert len(main) >= 30
+
+    def test_keeps_url_inline_when_remaining_text_too_short(self):
+        """If stripping the URL would leave <30 chars, keep it inline."""
+        text = "Short https://example.com/article"
+        main, url = _split_url(text)
+        assert url is None
+        assert main == text
+
+    def test_returns_none_url_when_no_url_present(self):
+        """Plain text with no URL should return (text, None)."""
+        text = "Rocket League just dropped a huge patch!"
+        main, url = _split_url(text)
+        assert url is None
+        assert main == text
+
+    def test_splits_last_url_when_multiple_urls(self):
+        """Only the last URL should be extracted."""
+        text = "First https://example.com/a then more context about this story that is long enough https://example.com/b"
+        main, url = _split_url(text)
+        assert url == "https://example.com/b"
+        assert "https://example.com/a" in main
+
+    def test_strips_trailing_whitespace_from_main(self):
+        """Main text should not have leading or trailing whitespace after split."""
+        text = "This is a well-formed announcement about Geometry Dash  https://example.com/gd"
+        main, url = _split_url(text)
+        assert main == main.strip()
+
+    def test_empty_string_returns_empty_and_none(self):
+        """Empty input should return empty string and None."""
+        main, url = _split_url("")
+        assert main == ""
+        assert url is None
+
+
+# ── _retweet_context() ────────────────────────────────────────────────────────
+
+class TestRetweetContext:
+
+    def test_returns_account_specific_context_when_account_known(self):
+        """Known source_account returns a string from the account-specific list."""
+        from src.poster.queue import _RT_CONTEXT_BY_ACCOUNT
+        result = _retweet_context("rocketleague", source_account="rocketleague")
+        assert result in _RT_CONTEXT_BY_ACCOUNT["rocketleague"]
+
+    def test_returns_fallback_context_when_account_unknown(self):
+        """Unknown source_account falls back to niche-level fallback list."""
+        from src.poster.queue import _RT_CONTEXT_FALLBACK
+        result = _retweet_context("rocketleague", source_account="somerandomperson")
+        assert result in _RT_CONTEXT_FALLBACK["rocketleague"]
+
+    def test_returns_fallback_when_no_account_given(self):
+        """Empty source_account falls through to niche fallback."""
+        from src.poster.queue import _RT_CONTEXT_FALLBACK
+        result = _retweet_context("geometrydash", source_account="")
+        assert result in _RT_CONTEXT_FALLBACK["geometrydash"]
+
+    def test_returns_string_for_unknown_niche_with_no_account(self):
+        """Unknown niche with no account returns the hardcoded 'News:' fallback."""
+        result = _retweet_context("unknownniche", source_account="")
+        assert result == "News:"
+
+    def test_account_lookup_is_case_insensitive(self):
+        """source_account matching should be lowercase-normalised."""
+        from src.poster.queue import _RT_CONTEXT_BY_ACCOUNT
+        result = _retweet_context("geometrydash", source_account="RobTopGames")
+        assert result in _RT_CONTEXT_BY_ACCOUNT["robtopgames"]
+
+    def test_all_known_accounts_return_non_empty_string(self):
+        """Every account in _RT_CONTEXT_BY_ACCOUNT should yield a non-empty context."""
+        from src.poster.queue import _RT_CONTEXT_BY_ACCOUNT
+        for account in _RT_CONTEXT_BY_ACCOUNT:
+            result = _retweet_context("rocketleague", source_account=account)
+            assert isinstance(result, str) and result
+
+
+# ── _engagement_followup() ────────────────────────────────────────────────────
+
+class TestEngagementFollowup:
+
+    def test_returns_string_for_rocketleague(self):
+        """rocketleague niche should yield a non-empty CTA string."""
+        from src.poster.queue import _ENGAGEMENT_FOLLOWUPS
+        result = _engagement_followup("rocketleague")
+        assert result in _ENGAGEMENT_FOLLOWUPS["rocketleague"]
+
+    def test_returns_string_for_geometrydash(self):
+        """geometrydash niche should yield a non-empty CTA string."""
+        from src.poster.queue import _ENGAGEMENT_FOLLOWUPS
+        result = _engagement_followup("geometrydash")
+        assert result in _ENGAGEMENT_FOLLOWUPS["geometrydash"]
+
+    def test_returns_none_for_unknown_niche(self):
+        """Unknown niche should return None — never post an empty reply."""
+        result = _engagement_followup("unknownniche")
+        assert result is None
+
+    def test_returns_none_for_empty_string_niche(self):
+        """Empty string niche should return None."""
+        result = _engagement_followup("")
+        assert result is None
+
+
+# ── collect_and_queue — per-cycle hard cap ────────────────────────────────────
+
+class TestCollectAndQueueHardCap:
+
+    @pytest.mark.asyncio
+    async def test_hard_cap_stops_at_max_items_per_cycle(self):
+        """collect_and_queue must not enqueue more than _MAX_ITEMS_PER_CYCLE items."""
+        from src.poster.queue import _MAX_ITEMS_PER_CYCLE
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        # Build more items than the cap allows
+        items = [
+            RawContent(
+                source_id=source_id,
+                external_id=f"cap_{i}",
+                niche="rocketleague",
+                content_type="breaking_news",
+                title=f"Story {i}",
+                url=f"https://example.com/story-{i}",
+            )
+            for i in range(_MAX_ITEMS_PER_CYCLE + 3)
+        ]
+
+        class BulkCollector(BaseCollector):
+            async def collect(self):
+                return items
+
+        collector = BulkCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", side_effect=lambda item: f"Story text {item.external_id}"),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == _MAX_ITEMS_PER_CYCLE
+        rows = conn.execute("SELECT COUNT(*) AS cnt FROM tweet_queue").fetchone()
+        assert rows["cnt"] == _MAX_ITEMS_PER_CYCLE
+
+    @pytest.mark.asyncio
+    async def test_exactly_max_items_allowed(self):
+        """Exactly _MAX_ITEMS_PER_CYCLE items should all be queued without truncation."""
+        from src.poster.queue import _MAX_ITEMS_PER_CYCLE
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        items = [
+            RawContent(
+                source_id=source_id,
+                external_id=f"exact_{i}",
+                niche="rocketleague",
+                content_type="breaking_news",
+                title=f"Exact {i}",
+                url=f"https://example.com/exact-{i}",
+            )
+            for i in range(_MAX_ITEMS_PER_CYCLE)
+        ]
+
+        class ExactCollector(BaseCollector):
+            async def collect(self):
+                return items
+
+        collector = ExactCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", side_effect=lambda item: f"Exact text {item.external_id}"),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == _MAX_ITEMS_PER_CYCLE
+
+
+# ── collect_and_queue — quality gate integration ──────────────────────────────
+
+class TestCollectAndQueueQualityGate:
+
+    @pytest.mark.asyncio
+    async def test_skips_item_that_fails_quality_gate(self):
+        """Item rejected by passes_quality_gate must not be enqueued."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="qg_fail_001",
+            niche="rocketleague",
+            content_type="community_clip",
+            title="Low quality clip",
+            url="https://example.com/clip",
+            score=5,
+        )
+
+        class LowQualityCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = LowQualityCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value="Low quality clip"),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=False),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 0
+        rows = conn.execute("SELECT COUNT(*) AS cnt FROM tweet_queue").fetchone()
+        assert rows["cnt"] == 0
+
+    @pytest.mark.asyncio
+    async def test_age_calculated_from_metadata_created_at(self):
+        """Age in hours is derived from metadata.created_at and passed to quality gate."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="age_001",
+            niche="rocketleague",
+            content_type="community_clip",
+            title="Recent clip",
+            url="https://example.com/recent",
+            score=500,
+            metadata={"created_at": "2026-01-01T00:00:00Z"},
+        )
+
+        class AgedCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = AgedCollector(source_id=source_id, config={})
+
+        captured_age = {}
+
+        def _capture_gate(content_type, niche, score, age_hours, source_followers):
+            captured_age["age_hours"] = age_hours
+            return False  # reject so we don't need full DB flow
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", side_effect=_capture_gate),
+        ):
+            await collect_and_queue(collector, "rocketleague")
+
+        # The item was created in 2026-01-01; age must be > 0 hours
+        assert "age_hours" in captured_age
+        assert captured_age["age_hours"] > 0
+
+    @pytest.mark.asyncio
+    async def test_age_defaults_to_zero_when_metadata_missing_created_at(self):
+        """Items with no created_at in metadata are treated as age 0 (fresh)."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="no_ts_001",
+            niche="rocketleague",
+            content_type="community_clip",
+            title="Clip without timestamp",
+            url="https://example.com/no-ts",
+            score=500,
+        )
+
+        class NoTsCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = NoTsCollector(source_id=source_id, config={})
+
+        captured = {}
+
+        def _capture_gate(content_type, niche, score, age_hours, source_followers):
+            captured["age_hours"] = age_hours
+            return False
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", side_effect=_capture_gate),
+        ):
+            await collect_and_queue(collector, "rocketleague")
+
+        assert captured.get("age_hours") == 0.0
+
+    @pytest.mark.asyncio
+    async def test_age_defaults_to_zero_on_invalid_created_at_format(self):
+        """Malformed created_at string should not crash — age defaults to 0."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="bad_ts_001",
+            niche="rocketleague",
+            content_type="community_clip",
+            title="Clip with bad timestamp",
+            url="https://example.com/bad-ts",
+            score=500,
+            metadata={"created_at": "not-a-date"},
+        )
+
+        class BadTsCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = BadTsCollector(source_id=source_id, config={})
+
+        captured = {}
+
+        def _capture_gate(content_type, niche, score, age_hours, source_followers):
+            captured["age_hours"] = age_hours
+            return False
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", side_effect=_capture_gate),
+        ):
+            await collect_and_queue(collector, "rocketleague")
+
+        assert captured.get("age_hours") == 0.0
+
+
+# ── collect_and_queue — duplicate RETWEET signal dedup ───────────────────────
+
+class TestCollectAndQueueRetweetDedup:
+
+    @pytest.mark.asyncio
+    async def test_skips_duplicate_retweet_signal_already_in_queue(self):
+        """Second collection of the same tweet ID should not create a second queue row."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        # Pre-insert the RETWEET signal as if it was already queued
+        _insert_queue_row(conn, text="RETWEET:77777:rocketleague", priority=2)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="rt_dup_001",
+            niche="rocketleague",
+            content_type="official_tweet",
+            title="",
+            url="",
+            metadata={"retweet_id": "77777", "account": "rocketleague"},
+        )
+
+        class RTDupCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = RTDupCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value=None),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 0
+        rows = conn.execute("SELECT COUNT(*) AS cnt FROM tweet_queue").fetchone()
+        assert rows["cnt"] == 1  # only the pre-existing row
+
+    @pytest.mark.asyncio
+    async def test_skips_exact_duplicate_tweet_text(self):
+        """Identical tweet text already in queue/posted should not be re-queued."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        # Pre-insert the tweet as already queued
+        existing_text = "Season 14 of Rocket League is now live with brand-new ranks and cosmetics"
+        _insert_queue_row(conn, text=existing_text, priority=2)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="exact_dup_002",
+            niche="rocketleague",
+            content_type="breaking_news",
+            title="Season 14",
+            url="https://example.com/s14",
+        )
+
+        class ExactDupCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = ExactDupCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value=existing_text),
+            patch("src.poster.queue.prepare_media", return_value=None),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 0
+
+
+# ── collect_and_queue — media path selection ─────────────────────────────────
+
+class TestCollectAndQueueMediaPath:
+
+    @pytest.mark.asyncio
+    async def test_uses_reddit_media_path_when_mp4_present(self):
+        """Items with media_path ending .mp4 in metadata skip prepare_media."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="mp4_001",
+            niche="rocketleague",
+            content_type="community_clip",
+            title="Reddit clip",
+            url="",
+            metadata={"media_path": "/tmp/clip.mp4"},
+        )
+
+        class Mp4Collector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = Mp4Collector(source_id=source_id, config={})
+
+        mock_prepare = MagicMock()
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value="Reddit clip"),
+            patch("src.poster.queue.prepare_media", mock_prepare),
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 1
+        mock_prepare.assert_not_called()
+        row = conn.execute("SELECT media_path FROM tweet_queue").fetchone()
+        assert row["media_path"] == "/tmp/clip.mp4"
+
+    @pytest.mark.asyncio
+    async def test_calls_prepare_media_when_image_url_present(self):
+        """Items with image_url but no reddit mp4 path should call prepare_media."""
+        conn = _make_in_memory_db()
+        source_id = _insert_source(conn)
+
+        item = RawContent(
+            source_id=source_id,
+            external_id="img_001",
+            niche="rocketleague",
+            content_type="breaking_news",
+            title="Image story",
+            url="https://example.com/story",
+            image_url="https://example.com/image.jpg",
+        )
+
+        class ImageCollector(BaseCollector):
+            async def collect(self):
+                return [item]
+
+        collector = ImageCollector(source_id=source_id, config={})
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.format_tweet", return_value="Image story text that is long enough here"),
+            patch("src.poster.queue.prepare_media", return_value="/tmp/downloaded.jpg") as mock_prepare,
+            patch("src.poster.queue.is_similar_story", return_value=False),
+            patch("src.poster.queue.url_already_queued", return_value=False),
+            patch("src.poster.queue.passes_quality_gate", return_value=True),
+        ):
+            result = await collect_and_queue(collector, "rocketleague")
+
+        assert result == 1
+        mock_prepare.assert_called_once_with("https://example.com/image.jpg")
+        row = conn.execute("SELECT media_path FROM tweet_queue").fetchone()
+        assert row["media_path"] == "/tmp/downloaded.jpg"
+
+
+# ── _posts_in_last_30min() ────────────────────────────────────────────────────
+
+class TestPostsInLast30Min:
+
+    def test_counts_recent_posts_only(self):
+        """Only posts within the last 30 minutes with a tweet_id should be counted."""
+        from src.poster.queue import _posts_in_last_30min
+
+        conn = _make_in_memory_db()
+        queue_id = _insert_queue_row(conn)
+
+        # Insert a recent successful post (tweet_id present)
+        conn.execute(
+            """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
+               VALUES (?, 'rocketleague', 'tweet_recent', 'text', datetime('now', '-5 minutes'))""",
+            (queue_id,),
+        )
+        # Insert an old post (outside 30-minute window)
+        conn.execute(
+            """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
+               VALUES (?, 'rocketleague', 'tweet_old', 'text', datetime('now', '-60 minutes'))""",
+            (queue_id,),
+        )
+        # Insert a failed post (tweet_id is NULL — should not be counted)
+        conn.execute(
+            """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
+               VALUES (?, 'rocketleague', NULL, 'text', datetime('now', '-2 minutes'))""",
+            (queue_id,),
+        )
+        conn.commit()
+
+        with patch("src.poster.queue.get_db", return_value=_ctx(conn)):
+            count = _posts_in_last_30min("rocketleague")
+
+        assert count == 1
+
+    def test_returns_zero_when_no_recent_posts(self):
+        """Returns 0 when post_log is empty for the niche."""
+        from src.poster.queue import _posts_in_last_30min
+
+        conn = _make_in_memory_db()
+
+        with patch("src.poster.queue.get_db", return_value=_ctx(conn)):
+            count = _posts_in_last_30min("rocketleague")
+
+        assert count == 0
+
+    def test_counts_only_correct_niche(self):
+        """Posts for a different niche must not be counted."""
+        from src.poster.queue import _posts_in_last_30min
+
+        conn = _make_in_memory_db()
+        queue_id = _insert_queue_row(conn, niche="geometrydash")
+
+        conn.execute(
+            """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
+               VALUES (?, 'geometrydash', 'tweet_gd', 'text', datetime('now', '-1 minutes'))""",
+            (queue_id,),
+        )
+        conn.commit()
+
+        with patch("src.poster.queue.get_db", return_value=_ctx(conn)):
+            count = _posts_in_last_30min("rocketleague")
+
+        assert count == 0
+
+
+# ── post_next — 30-min safety cap ────────────────────────────────────────────
+
+class TestPostNextSafetyCap:
+
+    def test_blocks_posting_when_safety_cap_reached(self):
+        """post_next returns False immediately when 3+ posts in last 30 min."""
+        from src.poster.queue import _MAX_POSTS_PER_30MIN
+
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, priority=5, text="Should not post")
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=_MAX_POSTS_PER_30MIN),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        client.post_tweet.assert_not_called()
+        client.quote_tweet.assert_not_called()
+
+    def test_blocks_posting_when_safety_cap_exceeded(self):
+        """post_next returns False when count exceeds the 30-min cap."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, priority=5, text="Also should not post")
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=10),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+
+    def test_allows_posting_when_below_safety_cap(self):
+        """post_next proceeds normally when recent posts are below the cap."""
+        from src.poster.queue import _MAX_POSTS_PER_30MIN
+
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, priority=5, text="Should post fine")
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_ok"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=_MAX_POSTS_PER_30MIN - 1),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+
+
+# ── post_next — URL self-reply ────────────────────────────────────────────────
+
+class TestPostNextUrlSelfReply:
+
+    def test_url_is_posted_as_self_reply(self):
+        """When tweet text has a URL, main text is posted first then URL as reply."""
+        conn = _make_in_memory_db()
+        long_tweet = "Rocket League Season 14 is now live — major rank reset, new cosmetics, and cross-platform parties https://rocketleague.com/news/s14"
+        _insert_queue_row(conn, priority=3, text=long_tweet)
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_main_id"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        assert client.post_tweet.call_count == 2
+        # First call: main text without URL
+        first_call_text = client.post_tweet.call_args_list[0].kwargs.get(
+            "text", client.post_tweet.call_args_list[0].args[0] if client.post_tweet.call_args_list[0].args else ""
+        )
+        # Second call: self-reply with URL
+        second_call_kwargs = client.post_tweet.call_args_list[1].kwargs
+        assert second_call_kwargs.get("reply_to") == "tweet_main_id"
+        assert "Read more:" in second_call_kwargs.get("text", "")
+        assert "https://rocketleague.com/news/s14" in second_call_kwargs.get("text", "")
+
+    def test_no_self_reply_when_tweet_has_no_url(self):
+        """Tweets without a URL should not trigger a self-reply call."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, priority=3, text="Rocket League is looking great this season")
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_no_url"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        # Only one post_tweet call — no reply for URL-less tweet at non-breaking priority
+        assert client.post_tweet.call_count == 1
+
+
+# ── post_next — engagement followup ─────────────────────────────────────────
+
+class TestPostNextEngagementFollowup:
+
+    def test_breaking_news_without_url_gets_followup_reply(self):
+        """Breaking news (priority=1) without URL triggers engagement followup reply."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(
+            conn, niche="geometrydash", priority=1,
+            text="BREAKING: Top 1 in Geometry Dash just verified by a new player"
+        )
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_breaking"
+
+        with (
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._engagement_followup", return_value="Follow @gd_wire for updates."),
+        ):
+            result = post_next("geometrydash", client)
+
+        assert result is True
+        assert client.post_tweet.call_count == 2
+        followup_call = client.post_tweet.call_args_list[1].kwargs
+        assert followup_call.get("reply_to") == "tweet_breaking"
+        assert "Follow" in followup_call.get("text", "")
+
+    def test_breaking_news_followup_skipped_when_engagement_followup_returns_none(self):
+        """If _engagement_followup returns None, no second post_tweet call is made."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(
+            conn, niche="rocketleague", priority=1,
+            text="BREAKING: Something happened without a follow-up CTA available"
+        )
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_no_followup"
+
+        with (
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._engagement_followup", return_value=None),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        assert client.post_tweet.call_count == 1
+
+    def test_non_breaking_tweet_without_url_does_not_get_followup(self):
+        """Non-breaking (priority > 1) tweets without URL must not get a followup reply."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(
+            conn, niche="rocketleague", priority=4,
+            text="New weekly demon posted in Rocket League community today"
+        )
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_nonbreak"
+
+        mock_followup = MagicMock(return_value="Follow us!")
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._engagement_followup", mock_followup),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        assert client.post_tweet.call_count == 1
+        mock_followup.assert_not_called()
+
+
+# ── post_next — source-aware RETWEET:{id}:{account} format ───────────────────
+
+class TestPostNextRetweetWithAccount:
+
+    def test_retweet_with_account_passes_account_to_retweet_context(self):
+        """RETWEET:{id}:{account} format extracts account and passes it to _retweet_context."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="RETWEET:12345:rocketleague", priority=2)
+        client = MagicMock()
+        client.quote_tweet.return_value = "qt_with_account"
+
+        captured = {}
+
+        def _capture_context(niche, source_account=""):
+            captured["source_account"] = source_account
+            return "From @RocketLeague:"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._retweet_context", side_effect=_capture_context),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        assert captured.get("source_account") == "rocketleague"
+        client.quote_tweet.assert_called_once_with("12345", "From @RocketLeague:")
+
+    def test_retweet_without_account_uses_empty_string(self):
+        """RETWEET:{id} without third segment passes empty source_account."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="RETWEET:99999", priority=2)
+        client = MagicMock()
+        client.quote_tweet.return_value = "qt_no_account"
+
+        captured = {}
+
+        def _capture_context(niche, source_account=""):
+            captured["source_account"] = source_account
+            return "Rocket League news:"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._retweet_context", side_effect=_capture_context),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        assert captured.get("source_account") == ""
+
+
+# ── post_next — QUOTE: signal ────────────────────────────────────────────────
+
+class TestPostNextQuoteSignal:
+
+    def test_quote_signal_calls_quote_tweet_with_commentary(self):
+        """QUOTE:{id}:{text} should call client.quote_tweet with extracted commentary."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="QUOTE:11111:This is huge news for RL esports!", priority=2)
+        client = MagicMock()
+        client.quote_tweet.return_value = "qt_quote_ok"
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        client.quote_tweet.assert_called_once_with("11111", "This is huge news for RL esports!")
+        row = conn.execute("SELECT status FROM tweet_queue").fetchone()
+        assert row["status"] == "posted"
+
+    def test_quote_signal_marks_failed_when_quote_tweet_returns_none(self):
+        """QUOTE: signal where quote_tweet fails should mark row failed."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="QUOTE:22222:Big news dropping soon for fans", priority=2)
+        client = MagicMock()
+        client.quote_tweet.return_value = None
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+            patch("src.poster.queue._check_failure_alert"),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        row = conn.execute("SELECT status FROM tweet_queue").fetchone()
+        assert row["status"] == "failed"
+
+    def test_quote_signal_marks_failed_on_malformed_no_colon_separator(self):
+        """QUOTE: signal with no second colon separator should be marked failed."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="QUOTE:malformed-no-sep", priority=2)
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        client.quote_tweet.assert_not_called()
+        row = conn.execute("SELECT status FROM tweet_queue").fetchone()
+        assert row["status"] == "failed"
+
+    def test_quote_signal_marks_failed_on_non_numeric_id(self):
+        """QUOTE: signal with non-numeric tweet ID should be marked failed."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="QUOTE:not-a-number:Some commentary here", priority=2)
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        client.quote_tweet.assert_not_called()
+        row = conn.execute("SELECT status FROM tweet_queue").fetchone()
+        assert row["status"] == "failed"
+
+    def test_quote_signal_marks_failed_on_empty_commentary(self):
+        """QUOTE: signal with empty commentary text should be marked failed."""
+        conn = _make_in_memory_db()
+        _insert_queue_row(conn, text="QUOTE:33333:", priority=2)
+        client = MagicMock()
+
+        with (
+            patch("src.poster.queue.get_db", return_value=_ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is False
+        client.quote_tweet.assert_not_called()
+        row = conn.execute("SELECT status FROM tweet_queue").fetchone()
+        assert row["status"] == "failed"
+
+
+# ── _check_failure_alert — exception swallow ─────────────────────────────────
+
+class TestCheckFailureAlertExceptionSwallow:
+
+    def test_exception_inside_alert_is_silently_swallowed(self):
+        """Any exception raised inside _check_failure_alert must not propagate."""
+        from src.poster.queue import _check_failure_alert
+        from src.poster.rate_limiter import _BACKOFF_ALERT_N
+
+        with (
+            patch("src.poster.queue.consecutive_failure_count", return_value=_BACKOFF_ALERT_N),
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no event loop")),
+        ):
+            # Must not raise
+            _check_failure_alert("rocketleague")
 
 
 # ── Context manager helper ────────────────────────────────────────────────────
