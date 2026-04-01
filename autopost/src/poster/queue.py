@@ -321,6 +321,12 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             # Post URL as a self-reply with context label
             if url:
                 client.post_tweet(text=f"Read more: {url}", reply_to=tweet_id)
+            # For high-priority content, add a follow-up engagement reply.
+            # Conversation depth (replies) is weighted 13.5x in the X algorithm.
+            elif is_breaking:
+                followup = _engagement_followup(niche)
+                if followup:
+                    client.post_tweet(text=followup, reply_to=tweet_id)
             mark_posted(conn, queue_id, tweet_id)
             return True
         else:
@@ -379,6 +385,28 @@ def _retweet_context(niche: str, source_account: str = "") -> str:
             return random.choice(options)
     fallback = _RT_CONTEXT_FALLBACK.get(niche, ["News:"])
     return random.choice(fallback)
+
+
+_ENGAGEMENT_FOLLOWUPS: dict[str, list[str]] = {
+    "rocketleague": [
+        "Follow @rl_wire1 for 24/7 Rocket League news and esports updates.",
+        "Turn on notifications to never miss breaking RL news.",
+        "What do you think about this? Reply below.",
+    ],
+    "geometrydash": [
+        "Follow @gd_wire for 24/7 Geometry Dash news and updates.",
+        "Turn on notifications to never miss breaking GD news.",
+        "What do you think? Reply below.",
+    ],
+}
+
+
+def _engagement_followup(niche: str) -> str | None:
+    """Return a follow-up reply for breaking news to boost conversation depth."""
+    options = _ENGAGEMENT_FOLLOWUPS.get(niche)
+    if not options:
+        return None
+    return random.choice(options)
 
 
 def _split_url(text: str) -> tuple[str, str | None]:
