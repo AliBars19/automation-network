@@ -150,7 +150,8 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                 retweet_id = item.metadata.get("retweet_id")
                 if not retweet_id:
                     continue  # no template and no retweet — skip entirely
-                tweet_text = f"RETWEET:{retweet_id}"
+                account = item.metadata.get("account", "")
+                tweet_text = f"RETWEET:{retweet_id}:{account}"
                 # Dedup: same tweet ID may arrive from multiple sources
                 existing = conn.execute(
                     "SELECT 1 FROM tweet_queue WHERE tweet_text = ? AND status = 'queued' LIMIT 1",
@@ -273,12 +274,14 @@ def post_next(niche: str, client: TwitterClient) -> bool:
         # engagement format). We convert them to quote tweets with brief
         # context so the algorithm treats them as original content.
         if text.startswith("RETWEET:"):
-            original_id = text.split(":", 1)[1].strip()
+            parts = text.split(":", 2)
+            original_id = parts[1].strip() if len(parts) > 1 else ""
+            source_account = parts[2].strip() if len(parts) > 2 else ""
             if not original_id.isdigit():
                 mark_failed(conn, queue_id, f"invalid retweet ID: {original_id!r}")
                 return False
-            # Quote-tweet with a short context line instead of pure RT
-            context = _retweet_context(niche)
+            # Quote-tweet with a source-aware context line instead of pure RT
+            context = _retweet_context(niche, source_account)
             new_id = client.quote_tweet(original_id, context)
             if new_id:
                 mark_posted(conn, queue_id, new_id)
@@ -344,28 +347,34 @@ import re
 
 _URL_RE = re.compile(r"https?://\S+")
 
-# Short context lines for converting retweets to quote tweets.
-# Variety prevents the bot from looking repetitive.
-_RT_CONTEXT = {
-    "rocketleague": [
-        "Official from Rocket League:",
-        "From Psyonix:",
-        "Rocket League news:",
-        "RLCS update:",
-    ],
-    "geometrydash": [
-        "From RobTop:",
-        "Official Geometry Dash news:",
-        "GD update:",
-        "Demon List update:",
-    ],
+# Source-aware context lines for quote tweets.
+# Keyed by account handle (lowercase) → list of context lines.
+_RT_CONTEXT_BY_ACCOUNT: dict[str, list[str]] = {
+    "rocketleague":    ["From @RocketLeague:", "Rocket League update:"],
+    "rlesports":       ["From @RLEsports:", "#RLCS update:"],
+    "rlcs":            ["From @RLCS:", "#RLCS news:"],
+    "psyonixstudios":  ["From @PsyonixStudios:", "Psyonix update:"],
+    "rl_status":       ["Server status:", "From @RL_Status:"],
+    "robtopgames":     ["From @RobTopGames:", "RobTop update:"],
+    "_geometrydash":   ["From @_GeometryDash:", "Geometry Dash news:"],
+    "demonlistgd":     ["Demon List update:", "From @demonlistgd:"],
+    "geode_sdk":       ["Geode update:", "From @geode_sdk:"],
+}
+
+_RT_CONTEXT_FALLBACK: dict[str, list[str]] = {
+    "rocketleague": ["Rocket League news:", "#RLCS update:"],
+    "geometrydash": ["Geometry Dash news:", "GD update:"],
 }
 
 
-def _retweet_context(niche: str) -> str:
-    """Pick a random context line for converting a retweet to a quote tweet."""
-    options = _RT_CONTEXT.get(niche, ["News:"])
-    return random.choice(options)
+def _retweet_context(niche: str, source_account: str = "") -> str:
+    """Pick a context line for a quote tweet, tailored to the source account."""
+    if source_account:
+        options = _RT_CONTEXT_BY_ACCOUNT.get(source_account.lower())
+        if options:
+            return random.choice(options)
+    fallback = _RT_CONTEXT_FALLBACK.get(niche, ["News:"])
+    return random.choice(fallback)
 
 
 def _split_url(text: str) -> tuple[str, str | None]:

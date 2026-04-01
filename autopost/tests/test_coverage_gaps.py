@@ -145,7 +145,17 @@ class TestRetweetContext:
 
     def test_unknown_niche_returns_default(self):
         ctx = _retweet_context("unknown")
-        assert ctx == "News:"
+        assert isinstance(ctx, str)
+        assert len(ctx) > 0
+
+    def test_source_aware_context(self):
+        ctx = _retweet_context("rocketleague", "RLEsports")
+        assert "@RLEsports" in ctx or "#RLCS" in ctx
+
+    def test_source_aware_fallback(self):
+        ctx = _retweet_context("rocketleague", "unknown_account")
+        assert isinstance(ctx, str)
+        assert len(ctx) > 0
 
 
 # ── queue.py: URL self-reply in post_next (line 220) ────────────────────────

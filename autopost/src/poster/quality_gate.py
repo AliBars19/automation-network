@@ -33,13 +33,17 @@ _COMMUNITY_TYPES: set[str] = {
 
 # Max posts per content type per day (resets at midnight UTC)
 _DAILY_CAPS: dict[str, int] = {
-    "community_clip": 2,
-    "reddit_clip":    3,
-    "monitored_tweet": 8,
-    "rank_milestone":  1,
-    "stat_milestone":  1,
+    "community_clip":    2,
+    "reddit_clip":       3,
+    "monitored_tweet":   5,
+    "rank_milestone":    1,
+    "stat_milestone":    1,
     "creator_spotlight": 2,
-    "viral_moment":    1,
+    "viral_moment":      1,
+    "official_tweet":    6,
+    "robtop_tweet":      6,
+    "youtube_video":     4,
+    "flashback":         1,
 }
 
 # Engagement thresholds: minimum likes for community tweets to be considered
@@ -62,12 +66,21 @@ def passes_quality_gate(
     source_followers: int = 0,
 ) -> bool:
     """
-    Return True if community content passes all quality checks.
+    Return True if content passes quality checks.
 
-    Official content types (not in _COMMUNITY_TYPES) always pass.
     Community content must pass engagement threshold + daily cap + age check.
+    All other content types still respect daily caps if configured.
     """
-    # Official content always passes
+    # Daily cap check applies to ALL content types (not just community).
+    # This prevents any single content type from dominating the feed.
+    cap = _DAILY_CAPS.get(content_type)
+    if cap is not None and not _within_daily_cap(niche, content_type, cap):
+        logger.debug(
+            f"[QualityGate] {content_type} rejected: daily cap ({cap}) reached for {niche}"
+        )
+        return False
+
+    # Non-community content: daily cap is the only gate
     if content_type not in _COMMUNITY_TYPES:
         return True
 
@@ -89,14 +102,6 @@ def passes_quality_gate(
     if score < threshold:
         logger.debug(
             f"[QualityGate] {content_type} rejected: score {score} < threshold {threshold}"
-        )
-        return False
-
-    # Daily cap check
-    cap = _DAILY_CAPS.get(content_type)
-    if cap is not None and not _within_daily_cap(niche, content_type, cap):
-        logger.debug(
-            f"[QualityGate] {content_type} rejected: daily cap ({cap}) reached for {niche}"
         )
         return False
 

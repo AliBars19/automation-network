@@ -182,10 +182,39 @@ class TwitterMonitorCollector(BaseCollector):
             text_no_emoji = _tweet_re.sub(
                 r"[\U0001F600-\U0001FAFF\U00002600-\U000027BF\u200d\ufe0f]+", "", text_no_urls
             ).strip()
-            if len(text_no_emoji) < 20:
+            if len(text_no_emoji) < 30:
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                     f"too short/emoji-only ({len(text_no_emoji)} chars) — skipping"
+                )
+                continue
+
+            # Skip filler/personality tweets that have no news value
+            _FILLER_RE = [
+                _tweet_re.compile(r"^(hmm+|ah+|oh+|wow+|lol+|lmao|bruh|haha+|gg+)[.!?…\s]*$", _tweet_re.I),
+                _tweet_re.compile(r"^\d+-\d+\.?\s*$"),  # bare scores "3-0."
+                _tweet_re.compile(r"^(a{3,}h|o{3,}h|e{3,})", _tweet_re.I),  # "aaaaaaaah"
+            ]
+            if any(pat.match(text_no_emoji.strip()) for pat in _FILLER_RE):
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"filler pattern — skipping"
+                )
+                continue
+
+            # Substance check: require at least one proper noun, number,
+            # hashtag, or @mention to qualify as news. Catches vague tweets
+            # like "just what we expected... right?" or "Hmm..."
+            has_substance = (
+                _tweet_re.search(r"(?<!\A)\b[A-Z][a-z]{2,}", text_no_urls)  # proper noun
+                or _tweet_re.search(r"\d", text_no_urls)                     # number
+                or "#" in text_no_urls                                        # hashtag
+                or "@" in text_no_urls                                        # mention
+            )
+            if not has_substance and len(text_no_emoji) < 60:
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                    f"lacks news substance — skipping"
                 )
                 continue
 
@@ -199,17 +228,28 @@ class TwitterMonitorCollector(BaseCollector):
                 )
                 continue
 
-            # Text-based French detection for tweets where lang field is missing
-            # or marked "und". Common French words that rarely appear in English.
-            _fr = text.lower()
-            if any(w in _fr for w in (
-                " les ", " des ", " est ", " pour ", " dans ",
-                " cette ", " avec ", " nous ", " mais ", " sont ",
-                "c'est ", "l'open", "matchs ", " équipe",
-            )):
+            # Text-based French detection — scoring approach.
+            # Strip emojis first so they don't break word boundary checks.
+            import unicodedata
+            _fr_clean = "".join(
+                c for c in text.lower()
+                if unicodedata.category(c) not in ("So", "Sk", "Cf")
+            )
+            _FR_WORDS = re.compile(
+                r"\b(?:les|des|est|pour|dans|cette|avec|nous|mais|sont"
+                r"|le|la|une|du|au|ce|se|ne|pas|qui|que|sur|aussi"
+                r"|tout|fait|comme|très|plus|mdr|mdrrr|ptdr|allez"
+                r"|commence|furieux|victoire|équipe|incroyable"
+                r"|magnifique|parcours|défaite|soirée|début"
+                r"|rendez|retrouve)\b", re.I
+            )
+            _FR_PREFIXES = ("c'est", "l'open", "l'", "d'", "n'", "j'", "qu'")
+            fr_score = len(_FR_WORDS.findall(_fr_clean))
+            fr_score += sum(1 for p in _FR_PREFIXES if p in _fr_clean)
+            if fr_score >= 2:
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
-                    f"detected French text — skipping"
+                    f"detected French text (score={fr_score}) — skipping"
                 )
                 continue
 
@@ -227,6 +267,17 @@ class TwitterMonitorCollector(BaseCollector):
                 core.get("legacy", {}).get("screen_name")
                 or self.username
             )
+
+            # Only accept tweets authored by the account we're monitoring.
+            # Embedded tweets from other accounts (e.g. @RocketBaguette
+            # inside @RLEsports timeline) must be rejected.
+            if screen_name.lower() != self.username.lower():
+                logger.debug(
+                    f"[TwitterMonitor] @{self.username} timeline contained "
+                    f"tweet by @{screen_name} ({tweet_id}) — skipping"
+                )
+                continue
+
             tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
 
             # Extract first image URL from media entities
@@ -297,7 +348,16 @@ class TwitterMonitorCollector(BaseCollector):
 
 
 def _extract_tweets(data: dict) -> list[dict]:
-    """Walk the GraphQL response tree to find tweet result objects."""
+    """Walk the GraphQL response tree to find tweet result objects.
+
+    Skips sub-trees inside retweeted_status_result and quoted_status_result
+    so that embedded tweets from *other* accounts aren't treated as
+    standalone tweets from the timeline owner.  This prevents content from
+    non-monitored accounts (e.g. @RocketBaguette inside an @RLEsports RT)
+    from leaking into the pipeline.
+    """
+    _EMBEDDED_KEYS = {"retweeted_status_result", "quoted_status_result"}
+
     tweets: list[dict] = []
     seen: set[str] = set()
     stack: list = [data]
@@ -310,7 +370,9 @@ def _extract_tweets(data: dict) -> list[dict]:
                 if tid and tid not in seen:
                     seen.add(tid)
                     tweets.append(obj)
-            stack.extend(obj.values())
+            for k, v in obj.items():
+                if k not in _EMBEDDED_KEYS:
+                    stack.append(v)
         elif isinstance(obj, list):
             stack.extend(obj)
     return tweets

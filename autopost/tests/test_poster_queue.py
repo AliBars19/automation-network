@@ -215,7 +215,7 @@ class TestCollectAndQueue:
             content_type="official_tweet",
             title="",
             url="",
-            metadata={"retweet_id": "99999"},
+            metadata={"retweet_id": "99999", "account": "RLEsports"},
         )
 
         class RTCollector(BaseCollector):
@@ -234,7 +234,7 @@ class TestCollectAndQueue:
 
         assert result == 1
         row = conn.execute("SELECT tweet_text FROM tweet_queue WHERE niche = 'rocketleague'").fetchone()
-        assert row["tweet_text"] == "RETWEET:99999"
+        assert row["tweet_text"] == "RETWEET:99999:RLEsports"
 
     @pytest.mark.asyncio
     async def test_skips_item_with_no_template_and_no_retweet_id(self):

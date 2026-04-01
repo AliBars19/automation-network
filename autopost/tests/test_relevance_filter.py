@@ -170,7 +170,7 @@ class TestRelevanceInCollect:
     @pytest.mark.asyncio
     async def test_retweet_source_skips_off_topic(self):
         """A retweet source should skip tweets that fail the relevance filter."""
-        tweet = _make_tweet_dict(text="Just had amazing pizza for lunch")
+        tweet = _make_tweet_dict(text="Just had amazing pizza for lunch", screen_name="SomeAccount")
         resp = _wrap_in_timeline([tweet])
 
         collector = TwitterMonitorCollector(
@@ -193,7 +193,7 @@ class TestRelevanceInCollect:
     @pytest.mark.asyncio
     async def test_retweet_source_keeps_on_topic(self):
         """A retweet source should keep tweets that pass the relevance filter."""
-        tweet = _make_tweet_dict(text="Rocket League Season 22 is live!")
+        tweet = _make_tweet_dict(text="Rocket League Season 22 is live!", screen_name="RocketLeague")
         resp = _wrap_in_timeline([tweet])
 
         collector = TwitterMonitorCollector(
@@ -217,7 +217,7 @@ class TestRelevanceInCollect:
     @pytest.mark.asyncio
     async def test_non_retweet_source_bypasses_filter(self):
         """Monitored (non-retweet) sources should NOT be filtered — all tweets pass."""
-        tweet = _make_tweet_dict(text="Completely random personal tweet")
+        tweet = _make_tweet_dict(text="ShiftRLE just dropped a new Roster Roundup video covering all the latest transfers", screen_name="SomePlayer")
         resp = _wrap_in_timeline([tweet])
 
         collector = TwitterMonitorCollector(
@@ -240,8 +240,8 @@ class TestRelevanceInCollect:
     @pytest.mark.asyncio
     async def test_gd_retweet_source_filters_correctly(self):
         """GD retweet source keeps GD content, skips off-topic."""
-        on_topic = _make_tweet_dict(tweet_id="1", text="Geometry Dash 2.3 coming soon!")
-        off_topic = _make_tweet_dict(tweet_id="2", text="My cat is so cute today")
+        on_topic = _make_tweet_dict(tweet_id="1", text="Geometry Dash 2.3 coming soon!", screen_name="RobTopGames")
+        off_topic = _make_tweet_dict(tweet_id="2", text="My cat is so cute today", screen_name="RobTopGames")
         resp = _wrap_in_timeline([on_topic, off_topic])
 
         collector = TwitterMonitorCollector(
