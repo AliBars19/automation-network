@@ -34,6 +34,12 @@ def clip_youtube_video(video_url: str, video_id: str) -> str | None:
         logger.debug("[VideoClipper] No cookies.txt found — YouTube clips disabled")
         return None
 
+    # Sanitize video_id to prevent path traversal (defence-in-depth)
+    import re
+    video_id = re.sub(r"[^a-zA-Z0-9_\-]", "", video_id)
+    if not video_id:
+        return None
+
     output_path = str(MEDIA_DIR / f"yt_clip_{video_id}.mp4")
 
     # Skip if already downloaded
@@ -51,7 +57,6 @@ def clip_youtube_video(video_url: str, video_id: str) -> str | None:
             "--merge-output-format", "mp4",
             "--remux-video", "mp4",
             "--postprocessor-args", "ffmpeg:-c:v libx264 -c:a aac",
-            "--remote-components", "ejs:github",
             "--no-playlist",
             "--no-warnings",
             "--quiet",
@@ -94,6 +99,12 @@ def clip_reddit_video(reddit_url: str, post_id: str) -> str | None:
     yt-dlp natively supports Reddit video URLs and merges audio+video.
     Requires cookies.txt for Reddit if the IP is blocked.
     """
+    # Sanitize post_id to prevent path traversal
+    import re
+    post_id = re.sub(r"[^a-zA-Z0-9_\-]", "", post_id)
+    if not post_id:
+        return None
+
     output_path = str(MEDIA_DIR / f"reddit_{post_id}.mp4")
 
     if os.path.exists(output_path):

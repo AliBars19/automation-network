@@ -65,7 +65,10 @@ async def _probe_youtube(config: dict, client: httpx.AsyncClient) -> tuple[str, 
 
 
 async def _probe_rss(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
+    from src.collectors.url_utils import is_safe_url
     url = config.get("url", "")
+    if not is_safe_url(url):
+        return "dead", f"blocked by SSRF check: {url[:60]}"
     resp = await client.get(url)
     resp.raise_for_status()
     feed = feedparser.parse(resp.text)
@@ -77,7 +80,10 @@ async def _probe_rss(config: dict, client: httpx.AsyncClient) -> tuple[str, str]
 
 
 async def _probe_scraper(config: dict, client: httpx.AsyncClient) -> tuple[str, str]:
+    from src.collectors.url_utils import is_safe_url
     url = config.get("url", "")
+    if not is_safe_url(url):
+        return "dead", f"blocked by SSRF check: {url[:60]}"
     resp = await client.get(url)
     resp.raise_for_status()
     length = len(resp.text)
