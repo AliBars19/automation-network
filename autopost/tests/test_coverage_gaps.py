@@ -179,9 +179,9 @@ def _ctx(conn):
         raise
 
 
-class TestUrlInlineTweet:
-    def test_url_stays_inline(self):
-        """URLs are posted inline (self-reply pattern was removed)."""
+class TestUrlSelfReply:
+    def test_url_split_to_self_reply(self):
+        """URLs are split to a self-reply to avoid algorithmic link penalty."""
         conn = _make_db()
         conn.execute(
             "INSERT INTO tweet_queue (niche, tweet_text, priority, status) VALUES (?, ?, ?, 'queued')",
@@ -203,10 +203,43 @@ class TestUrlInlineTweet:
             result = post_next("rocketleague", client)
 
         assert result is True
-        # Single tweet posted with full text including URL
+        # Main tweet + URL self-reply = 2 calls
+        assert client.post_tweet.call_count == 2
+        # First call: main text without URL
+        main_call = client.post_tweet.call_args_list[0]
+        main_text = main_call.kwargs.get("text", "")
+        assert "https://example.com" not in main_text
+        # Second call: self-reply with URL
+        reply_call = client.post_tweet.call_args_list[1]
+        reply_text = reply_call.kwargs.get("text", "")
+        assert "https://example.com/article" in reply_text
+        assert reply_call.kwargs.get("reply_to") == "tweet_123"
+
+    def test_short_text_keeps_url_inline(self):
+        """Tweets where removing the URL leaves <30 chars keep URL inline."""
+        conn = _make_db()
+        conn.execute(
+            "INSERT INTO tweet_queue (niche, tweet_text, priority, status) VALUES (?, ?, ?, 'queued')",
+            ("rocketleague", "News https://example.com/x", 5),
+        )
+        conn.commit()
+
+        client = MagicMock()
+        client.post_tweet.return_value = "tweet_456"
+
+        with (
+            patch("src.poster.queue.get_db", side_effect=lambda: _ctx(conn)),
+            patch("src.poster.queue.within_monthly_limit", return_value=True),
+            patch("src.poster.queue.failure_backoff_ok", return_value=True),
+            patch("src.poster.queue.within_posting_window", return_value=True),
+            patch("src.poster.queue.can_post", return_value=True),
+            patch("src.poster.queue._posts_in_last_30min", return_value=0),
+        ):
+            result = post_next("rocketleague", client)
+
+        assert result is True
+        # Short text: URL stays inline, no self-reply
         assert client.post_tweet.call_count == 1
-        call_text = client.post_tweet.call_args.kwargs.get("text", client.post_tweet.call_args[0][0] if client.post_tweet.call_args[0] else "")
-        assert "https://example.com/article" in call_text
 
 
 # ── scraper.py: SSRF guard and redirect handling (lines 63-64, 79-80, etc.) ─

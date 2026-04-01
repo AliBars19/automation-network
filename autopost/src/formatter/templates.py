@@ -126,9 +126,9 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── YouTube video uploads ─────────────────────────────────────────────────
     "youtube_video": [
-        "New video from {creator}: \"{video_title}\"\n\n{url}",
-        "{creator} just uploaded: \"{video_title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
+        "{creator}: \"{video_title}\"\n\n{url}",
+        "NEW: {creator} — \"{video_title}\"\n\n{url}",
+        "{creator} just dropped \"{video_title}\"\n\n{url}",
     ],
 
     # ── Pro player content (disabled -- bot signal) ──────────────────────────
@@ -137,7 +137,7 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
     # ── Breaking / miscellaneous news ─────────────────────────────────────────
     "breaking_news": [
         "{title}\n\n{url}",
-        "{title}\n\n{url}",
+        "{headline}\n\n{url}",
     ],
 
     # ── Official account tweets (retweet signal) ──────────────────────────────
@@ -146,7 +146,7 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
     # ── Monitored account tweets (non-retweet — formatted as news) ──────────
     "monitored_tweet": [
         "{title}",
-        "{title}\n\nvia @{author}",
+        "{title}\n\n(via @{author})",
     ],
 }
 
@@ -236,9 +236,9 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
 
     # ── YouTube video uploads ─────────────────────────────────────────────────
     "youtube_video": [
-        "New video from {creator}: \"{video_title}\"\n\n{url}",
-        "{creator} just uploaded: \"{video_title}\"\n\n{url}",
-        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
+        "{creator}: \"{video_title}\"\n\n{url}",
+        "NEW: {creator} — \"{video_title}\"\n\n{url}",
+        "{creator} just dropped \"{video_title}\"\n\n{url}",
     ],
 
     # ── Creator spotlight ─────────────────────────────────────────────────────

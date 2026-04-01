@@ -312,11 +312,15 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 _check_failure_alert(niche)
                 return False
 
-        # Post as a single tweet with URL inline. Self-reply URL pattern was
-        # removed because the reply tweets clutter the profile timeline as
-        # standalone naked links, which looks worse than the URL penalty.
-        tweet_id = client.post_tweet(text=text, media_path=row["media_path"])
+        # Split URL to self-reply: inline links tank algorithmic reach
+        # (30-50% penalty). Post the main text first, then reply with
+        # "Read more: {url}" so the link doesn't penalize the main tweet.
+        main_text, url = _split_url(text)
+        tweet_id = client.post_tweet(text=main_text, media_path=row["media_path"])
         if tweet_id:
+            # Post URL as a self-reply with context label
+            if url:
+                client.post_tweet(text=f"Read more: {url}", reply_to=tweet_id)
             mark_posted(conn, queue_id, tweet_id)
             return True
         else:
