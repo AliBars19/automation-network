@@ -63,6 +63,21 @@ sources:
     account_id: octane_gg
     poll_interval: 600          # RL esports stats and match results
 
+  - name: "@RLRecon"
+    type: twitter
+    account_id: RLRecon
+    poll_interval: 600          # RL esports journalism, interviews, roster intel
+
+  - name: "@RLGameNews"
+    type: twitter
+    account_id: RLGameNews
+    poll_interval: 900          # RL news, item shops, leaks, updates
+
+  - name: "@RLUpdate"
+    type: twitter
+    account_id: RLUpdate
+    poll_interval: 900          # Community updates, RLCS media
+
   # ── Esports data APIs ────────────────────────────────────────────────────────
 
   - name: RL Flashbacks
@@ -95,13 +110,18 @@ sources:
     poll_interval: 1800
 
   - name: Dexerto RL
-    type: scraper
-    url: https://www.dexerto.com/rocket-league/
-    poll_interval: 3600
+    type: rss
+    url: https://www.dexerto.com/feed/?tag=rocket-league
+    poll_interval: 1800
 
   - name: The Loadout RL
-    type: scraper
-    url: https://www.theloadout.com/rocket-league
+    type: rss
+    url: https://www.theloadout.com/rocket-league/feed
+    poll_interval: 1800
+
+  - name: Esports News UK RL
+    type: rss
+    url: https://esports-news.co.uk/category/rocket-league/feed/
     poll_interval: 3600
 
   # ── YouTube ──────────────────────────────────────────────────────────────────

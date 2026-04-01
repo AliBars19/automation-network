@@ -58,6 +58,26 @@ sources:
     account_id: StatsGd
     poll_interval: 600          # GD Stats — player rankings, country leaderboards
 
+  - name: "@AREDLgd"
+    type: twitter
+    account_id: AREDLgd
+    poll_interval: 600          # All Rated Extreme Demons List — rankings & changes
+
+  - name: "@GDWTHub"
+    type: twitter
+    account_id: GDWTHub
+    poll_interval: 900          # GD tournament coverage (European Cup, World Tournament)
+
+  - name: "@GDWTournament"
+    type: twitter
+    account_id: GDWTournament
+    poll_interval: 900          # GD World Tournament official
+
+  - name: "@GD_22News"
+    type: twitter
+    account_id: GD_22News
+    poll_interval: 900          # GD 2.2 news, patch notes, update coverage
+
   # ── Game update sources ──────────────────────────────────────────────────────
 
   - name: Steam News (GD)
