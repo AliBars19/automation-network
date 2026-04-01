@@ -176,13 +176,16 @@ class TwitterMonitorCollector(BaseCollector):
             if text.startswith("RT @"):
                 continue
 
-            # Skip low-quality tweets: emoji-only, too short, or no substance
+            # Skip low-quality tweets: emoji-only, too short, or no substance.
+            # Retweet sources (official accounts) get a lower bar — they're
+            # curated and their short hype tweets are part of the brand.
             import re as _tweet_re
             text_no_urls = _tweet_re.sub(r"https?://\S+", "", text).strip()
             text_no_emoji = _tweet_re.sub(
                 r"[\U0001F600-\U0001FAFF\U00002600-\U000027BF\u200d\ufe0f]+", "", text_no_urls
             ).strip()
-            if len(text_no_emoji) < 30:
+            _min_len = 15 if self.is_retweet_source else 30
+            if len(text_no_emoji) < _min_len:
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                     f"too short/emoji-only ({len(text_no_emoji)} chars) — skipping"
@@ -191,7 +194,7 @@ class TwitterMonitorCollector(BaseCollector):
 
             # Skip filler/personality tweets that have no news value
             _FILLER_RE = [
-                _tweet_re.compile(r"^(hmm+|ah+|oh+|wow+|lol+|lmao|bruh|haha+|gg+)[.!?…\s]*$", _tweet_re.I),
+                _tweet_re.compile(r"^(hmm+|ah+|oh+|wow+|lol+|lmao|bruh|haha+)[.!?…\s]*$", _tweet_re.I),
                 _tweet_re.compile(r"^\d+-\d+\.?\s*$"),  # bare scores "3-0."
                 _tweet_re.compile(r"^(a{3,}h|o{3,}h|e{3,})", _tweet_re.I),  # "aaaaaaaah"
             ]
@@ -202,21 +205,22 @@ class TwitterMonitorCollector(BaseCollector):
                 )
                 continue
 
-            # Substance check: require at least one proper noun, number,
-            # hashtag, or @mention to qualify as news. Catches vague tweets
-            # like "just what we expected... right?" or "Hmm..."
-            has_substance = (
-                _tweet_re.search(r"(?<!\A)\b[A-Z][a-z]{2,}", text_no_urls)  # proper noun
-                or _tweet_re.search(r"\d", text_no_urls)                     # number
-                or "#" in text_no_urls                                        # hashtag
-                or "@" in text_no_urls                                        # mention
-            )
-            if not has_substance and len(text_no_emoji) < 60:
-                logger.debug(
-                    f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
-                    f"lacks news substance — skipping"
+            # Substance check for non-retweet (monitored/news) accounts only.
+            # Retweet sources skip this — their content is already curated
+            # and short hype tweets like "PLAYOFF SATURDAY IS LIVE" are legit.
+            if not self.is_retweet_source:
+                has_substance = (
+                    _tweet_re.search(r"(?<!\A)\b[A-Z][a-z]{2,}", text_no_urls)  # proper noun
+                    or _tweet_re.search(r"\d", text_no_urls)                     # number
+                    or "#" in text_no_urls                                        # hashtag
+                    or "@" in text_no_urls                                        # mention
                 )
-                continue
+                if not has_substance and len(text_no_emoji) < 60:
+                    logger.debug(
+                        f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                        f"lacks news substance — skipping"
+                    )
+                    continue
 
             # Skip non-English tweets — both accounts target English audiences.
             # Check Twitter's lang field first, then text-based French detection.

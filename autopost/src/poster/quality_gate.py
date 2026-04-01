@@ -33,9 +33,9 @@ _COMMUNITY_TYPES: set[str] = {
 
 # Max posts per content type per day (resets at midnight UTC)
 _DAILY_CAPS: dict[str, int] = {
-    "community_clip":    2,
-    "reddit_clip":       3,
-    "monitored_tweet":   5,
+    "community_clip":    3,
+    "reddit_clip":       4,
+    "monitored_tweet":   6,
     "rank_milestone":    1,
     "stat_milestone":    1,
     "creator_spotlight": 2,
@@ -49,7 +49,7 @@ _DAILY_CAPS: dict[str, int] = {
 # Engagement thresholds: minimum likes for community tweets to be considered
 # newsworthy. Scaled by source follower tier.
 _ENGAGEMENT_THRESHOLDS: dict[str, int] = {
-    "small":   50,    # accounts with < 10K followers
+    "small":   25,    # accounts with < 10K followers
     "medium":  100,   # accounts with 10K-50K followers
     "large":   200,   # accounts with 50K+ followers
 }
