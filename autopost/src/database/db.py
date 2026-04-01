@@ -21,12 +21,12 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
     conn = sqlite3.connect(
         DB_PATH,
         detect_types=sqlite3.PARSE_DECLTYPES,
-        timeout=10,  # wait up to 10s for locked DB instead of failing instantly
+        timeout=30,  # wait up to 30s for locked DB (startup stampede)
     )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 10000")  # 10s retry on lock contention
+    conn.execute("PRAGMA busy_timeout = 30000")  # 30s retry on lock contention
     try:
         yield conn
         conn.commit()

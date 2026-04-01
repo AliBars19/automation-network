@@ -203,6 +203,11 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
                 logger.debug(f"[Scheduler] no collector for [{niche}] {name} ({type_}) — skipping")
                 continue
 
+            # Stagger start times by 3s per source to avoid DB lock stampede
+            _dt = __import__("datetime")
+            stagger = _dt.timedelta(seconds=3 * len([j for j in scheduler.get_jobs() if j.id.startswith("collect_")]))
+            first_run = _dt.datetime.now(_dt.timezone.utc) + stagger
+
             scheduler.add_job(
                 _run_collector,
                 "interval",
@@ -212,9 +217,9 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
                 name         = f"Collect {name} ({niche})",
                 max_instances= 1,
                 coalesce     = True,
-                next_run_time= __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+                next_run_time= first_run,
             )
-            logger.debug(f"[Scheduler] scheduled [{niche}] {name} every {poll_interval}s")
+            logger.debug(f"[Scheduler] scheduled [{niche}] {name} every {poll_interval}s (starts in {int(stagger.total_seconds())}s)")
 
         # ── Poster job (every 2 min — rate_limiter enforces actual gap) ───────
         scheduler.add_job(
