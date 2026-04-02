@@ -110,9 +110,9 @@ sources:
     poll_interval: 1800
 
   - name: Dexerto RL
-    type: rss
-    url: https://www.dexerto.com/feed/?tag=rocket-league
-    poll_interval: 1800
+    type: scraper
+    url: https://www.dexerto.com/rocket-league/
+    poll_interval: 3600
 
   - name: The Loadout RL
     type: rss

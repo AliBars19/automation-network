@@ -47,10 +47,15 @@ _DEFAULT_CONTENT_TYPE = {
 class RSSCollector(BaseCollector):
     """One instance per RSS source row. Fetches and parses the feed."""
 
+    # Multi-topic feeds that need per-entry relevance filtering.
+    # Niche-specific feeds (Steam, ShiftRLE) skip the filter entirely.
+    _MULTI_TOPIC_DOMAINS = {"dexerto.com", "theloadout.com", "esports-news.co.uk"}
+
     def __init__(self, source_id: int, config: dict, niche: str):
         super().__init__(source_id, config)
         self.niche = niche
         self.url: str = config["url"]
+        self._needs_topic_filter = any(d in self.url for d in self._MULTI_TOPIC_DOMAINS)
 
     async def collect(self) -> list[RawContent]:
         logger.debug(f"[RSS] fetching {self.url}")
@@ -76,6 +81,9 @@ class RSSCollector(BaseCollector):
                 entry.get("summary", "")
                 or (entry.get("content") or [{}])[0].get("value", "")
             )
+            # Skip off-topic entries from multi-topic feeds (e.g. Dexerto)
+            if self._needs_topic_filter and not _is_on_topic(title, summary, entry, self.niche):
+                continue
             items.append(RawContent(
                 source_id    = self.source_id,
                 external_id  = external_id,
@@ -97,6 +105,41 @@ class RSSCollector(BaseCollector):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+_RL_TOPIC_WORDS = {
+    "rocket league", "rlcs", "psyonix", "octane", "fennec", "dominus",
+    "aerial", "flip reset", "grand champ", "supersonic legend",
+    "item shop", "rocket pass",
+}
+_GD_TOPIC_WORDS = {
+    "geometry dash", "geometrydash", "robtop", "demon list", "demonlist",
+    "extreme demon", "pointercrate", "geode", "gdbrowser", "daily level",
+    "weekly demon",
+}
+_NICHE_TOPIC: dict[str, set[str]] = {
+    "rocketleague": _RL_TOPIC_WORDS,
+    "geometrydash": _GD_TOPIC_WORDS,
+}
+
+
+def _is_on_topic(title: str, summary: str, entry, niche: str) -> bool:
+    """Check if an RSS entry is relevant to the niche.
+
+    Niche-specific feeds (Steam News, ShiftRLE) are always on-topic.
+    General feeds (Dexerto, Loadout) need keyword validation to prevent
+    off-topic articles (e.g. The Boys TV show) from being posted.
+    """
+    keywords = _NICHE_TOPIC.get(niche)
+    if not keywords:
+        return True  # unknown niche — let everything through
+    haystack = (title + " " + summary).lower()
+    # Check entry categories/tags (most reliable for multi-topic feeds)
+    tags = [t.get("term", "").lower() for t in entry.get("tags", [])]
+    for kw in keywords:
+        if kw in haystack or any(kw in tag for tag in tags):
+            return True
+    return False
+
 
 def _detect_content_type(title: str, summary: str, niche: str) -> str:
     haystack = (title + " " + summary).lower()
