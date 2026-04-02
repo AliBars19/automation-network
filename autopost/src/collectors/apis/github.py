@@ -57,10 +57,30 @@ class GitHubCollector(BaseCollector):
             url        = release.get("html_url", "")
             release_id = str(release.get("id", ""))
 
-            # Trim body to first 5 lines for the tweet template
-            body_short = "\n".join(
-                line for line in body_raw.split("\n")[:6] if line.strip()
-            )[:300]
+            # Strip markdown formatting and extract meaningful changelog lines
+            body_lines = []
+            for line in body_raw.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                # Skip markdown headings, horizontal rules, and link-only lines
+                if line.startswith("#") or line.startswith("---") or line.startswith("http"):
+                    continue
+                # Convert markdown list items to plain text
+                line = re.sub(r"^\*\s+", "• ", line)
+                line = re.sub(r"^-\s+", "• ", line)
+                # Strip inline markdown (bold, italic, code, links)
+                line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)
+                line = re.sub(r"\*(.+?)\*", r"\1", line)
+                line = re.sub(r"`(.+?)`", r"\1", line)
+                line = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", line)
+                # Strip commit hashes in parentheses
+                line = re.sub(r"\s*\([a-f0-9]{7,}\)", "", line)
+                if line and len(line) > 5:
+                    body_lines.append(line)
+                if len(body_lines) >= 4:
+                    break
+            body_short = "\n".join(body_lines)[:300]
 
             items.append(RawContent(
                 source_id    = self.source_id,
