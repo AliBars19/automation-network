@@ -100,8 +100,17 @@ def _try_format(template: str, ctx: dict) -> str | None:
 
 
 def _normalize_whitespace(text: str) -> str:
-    """Collapse double spaces and normalize line breaks in formatted tweets."""
+    """Collapse double spaces, strip markdown, and normalize line breaks."""
     import re as _ws_re
+    # Strip markdown headings that leaked from raw content (e.g. GitHub release bodies)
+    text = _ws_re.sub(r"^#{1,6}\s+", "", text, flags=_ws_re.MULTILINE)
+    # Strip markdown bold/italic
+    text = _ws_re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = _ws_re.sub(r"\*(.+?)\*", r"\1", text)
+    # Strip inline code backticks
+    text = _ws_re.sub(r"`(.+?)`", r"\1", text)
+    # Strip commit hashes in parentheses
+    text = _ws_re.sub(r"\s*\([a-f0-9]{7,}\)", "", text)
     # Collapse multiple spaces into one (but preserve intentional \n\n)
     text = _ws_re.sub(r"[ \t]{2,}", " ", text)
     # Collapse 3+ newlines into 2
