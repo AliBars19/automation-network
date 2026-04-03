@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config.settings import LOG_LEVEL, LOGS_DIR, DRY_RUN
 from src.collectors.apis.flashback import FlashbackCollector
 from src.collectors.apis.gdbrowser import GDBrowserCollector
+from src.collectors.apis.geode_index import GeodeIndexCollector
 from src.collectors.apis.github import GitHubCollector
 from src.collectors.apis.pointercrate import PointercrateCollector
 from src.collectors.apis.rl_stats import RLStatsCollector
@@ -63,6 +64,7 @@ logger.add(
 _API_MAP = {
     "pointercrate": PointercrateCollector,
     "gdbrowser":    GDBrowserCollector,
+    "geode_index":  GeodeIndexCollector,
     "github":       GitHubCollector,
     "flashback":    FlashbackCollector,
     "rl_stats":     RLStatsCollector,

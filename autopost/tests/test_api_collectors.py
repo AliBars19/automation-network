@@ -1887,3 +1887,183 @@ class TestFetchOctaneFlashbacksEdgeCases:
 
         # All iterations fail gracefully — returns empty list, not an exception
         assert result == []
+
+
+# ===========================================================================
+# GEODE INDEX
+# ===========================================================================
+
+from src.collectors.apis.geode_index import GeodeIndexCollector, _fetch_recent_mods
+
+
+def _make_geode_mod(
+    mod_id: str = "spaghettdev.megahack",
+    name: str = "Mega Hack v8",
+    version: str = "8.1.0",
+    description: str = "A powerful hack client for GD.",
+    download_count: int = 300_000,
+    featured: bool = False,
+    source_url: str = "https://github.com/spaghettdev/megahack",
+    author: str = "Absolute",
+) -> dict:
+    return {
+        "id": mod_id,
+        "featured": featured,
+        "download_count": download_count,
+        "developers": [{"display_name": author, "is_owner": True}],
+        "versions": [{
+            "name": name,
+            "version": version,
+            "description": description,
+            "download_link": f"https://api.geode-sdk.org/v1/mods/{mod_id}/versions/{version}/download",
+        }],
+        "links": {"source": source_url, "homepage": None},
+    }
+
+
+class TestGeodeIndexCollector:
+
+    @pytest.mark.asyncio
+    async def test_popular_mod_is_included(self):
+        """Mod with download_count >= 25000 should be surfaced."""
+        mod = _make_geode_mod(download_count=50_000, featured=False)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 1
+        assert items[0].content_type == "mod_update"
+        assert items[0].external_id == "geode_mod_spaghettdev.megahack_8.1.0"
+        assert items[0].metadata["mod_name"] == "Mega Hack v8"
+        assert items[0].metadata["version"] == "8.1.0"
+
+    @pytest.mark.asyncio
+    async def test_featured_mod_below_threshold_is_included(self):
+        """Featured mods bypass the download threshold."""
+        mod = _make_geode_mod(download_count=5_000, featured=True)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 1
+
+    @pytest.mark.asyncio
+    async def test_small_unpopular_mod_is_filtered(self):
+        """Mods below threshold and not featured should be skipped."""
+        mod = _make_geode_mod(download_count=100, featured=False)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_max_items_cap_respected(self):
+        """At most max_items results are returned."""
+        mods = [_make_geode_mod(mod_id=f"dev.mod{i}", download_count=50_000) for i in range(10)]
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=mods)):
+            collector = GeodeIndexCollector(source_id=1, config={"max_items": 2}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 2
+
+    @pytest.mark.asyncio
+    async def test_custom_min_downloads_config(self):
+        """min_downloads config is respected."""
+        mod = _make_geode_mod(download_count=10_000, featured=False)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={"min_downloads": 5000}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_versions_list_skipped(self):
+        """Mods with no versions in the response are skipped gracefully."""
+        mod = _make_geode_mod(download_count=100_000)
+        mod["versions"] = []
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_api_failure_returns_empty(self):
+        """An HTTP error from the API should return an empty list, not raise."""
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_source_url_falls_back_to_download_link(self):
+        """When links.source is absent, the download_link is used as url."""
+        mod = _make_geode_mod(download_count=50_000, source_url="")
+        mod["links"] = {"source": None, "homepage": None}
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 1
+        # url falls back to the download_link
+        assert "api.geode-sdk.org" in items[0].url
+
+    @pytest.mark.asyncio
+    async def test_description_metadata_truncated(self):
+        """Long descriptions are truncated to 200 chars in metadata."""
+        long_desc = "A" * 500
+        mod = _make_geode_mod(download_count=50_000, description=long_desc)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items[0].metadata["description"]) <= 200
+
+
+class TestFetchRecentMods:
+
+    @pytest.mark.asyncio
+    async def test_returns_mods_on_success(self):
+        payload = {"payload": {"data": [_make_geode_mod()]}}
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = payload
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.geode_index.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _fetch_recent_mods()
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_empty(self):
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("timeout"))
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.geode_index.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _fetch_recent_mods()
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_returns_empty(self):
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=ValueError("bad json"))
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.collectors.apis.geode_index.httpx.AsyncClient", return_value=mock_ctx):
+            result = await _fetch_recent_mods()
+
+        assert result == []

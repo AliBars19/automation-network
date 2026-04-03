@@ -109,9 +109,11 @@ sources:
   # ── Mod / developer ecosystem ──────────────────────────────────────────────
 
   - name: Geode Mods Catalog
-    type: scraper
-    url: https://geode-sdk.org/mods
-    poll_interval: 1800
+    type: api
+    collector: geode_index
+    min_downloads: 25000
+    max_items: 3
+    poll_interval: 3600
 
   - name: Geode SDK (GitHub releases)
     type: api

@@ -64,6 +64,11 @@ class TestMakeCollector:
         result = self._call("api", {"collector": "flashback"})
         assert isinstance(result, FlashbackCollector)
 
+    def test_api_geode_index_returns_geode_index_collector(self):
+        from src.collectors.apis.geode_index import GeodeIndexCollector
+        result = self._call("api", {"collector": "geode_index"})
+        assert isinstance(result, GeodeIndexCollector)
+
     def test_api_rl_stats_returns_rl_stats_collector(self):
         from src.collectors.apis.rl_stats import RLStatsCollector
         result = self._call("api", {"collector": "rl_stats"})
