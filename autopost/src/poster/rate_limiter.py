@@ -6,20 +6,53 @@ Breaking news (priority == 1) bypasses the window and the minimum gap
 so urgent content posts immediately regardless of time of day.
 The failure backoff is always enforced — even for breaking news — because
 if the API is down, hammering it won't help.
+
+Per-niche posting config is read from config/<niche>.yaml (posting: section).
+Global defaults below are used when the YAML doesn't override them.
 """
 import random
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 
+import yaml
 from loguru import logger
 
 from src.database.db import get_db
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+# ── Global defaults ───────────────────────────────────────────────────────────
 MIN_INTERVAL_S       = 1200   # 20 min minimum between normal posts
 MIN_INTERVAL_BURST_S = 300    # 5 min minimum during match-day burst mode
 MAX_INTERVAL_S       = 3600   # 60 min maximum
 JITTER_MAX_S         = 120    # 0–120 s extra randomness
 MONTHLY_LIMIT        = 1500   # X Free tier: 1,500 tweets/month per app
+
+_CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
+
+
+@lru_cache(maxsize=8)
+def _posting_config(niche: str) -> dict:
+    """Load posting config from config/<niche>.yaml, falling back to global defaults."""
+    yaml_path = _CONFIG_DIR / f"{niche}.yaml"
+    if yaml_path.exists():
+        try:
+            data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+            return data.get("posting", {})
+        except Exception:
+            pass
+    return {}
+
+
+def _min_interval(niche: str) -> int:
+    return int(_posting_config(niche).get("min_interval_seconds", MIN_INTERVAL_S))
+
+
+def _max_interval(niche: str) -> int:
+    return int(_posting_config(niche).get("max_interval_seconds", MAX_INTERVAL_S))
+
+
+def _max_daily(niche: str) -> int:
+    return int(_posting_config(niche).get("max_daily_posts", 0))  # 0 = no limit
 # Posting window shifted to cover gaming peak hours.
 # Gaming audiences peak 7-11 PM EST = 23:00-03:00 UTC.
 # Window: 14:00-04:00 UTC = 9 AM - 11 PM EST (covers afternoon + prime time)
@@ -58,7 +91,7 @@ def can_post(niche: str) -> bool:
     # Safe because post_next() enforces a hard cap of 3 posts per 30 min
     # regardless of burst mode — so even if burst fires faster, the hard
     # cap prevents runaway posting.
-    min_gap = MIN_INTERVAL_BURST_S if _is_burst_mode(niche) else MIN_INTERVAL_S
+    min_gap = MIN_INTERVAL_BURST_S if _is_burst_mode(niche) else _min_interval(niche)
     if elapsed < min_gap:
         logger.debug(
             f"[{niche}] rate limited — {int(min_gap - elapsed)}s remaining"
@@ -176,9 +209,37 @@ def within_posting_window(is_breaking: bool = False) -> bool:
     return in_window
 
 
-def jitter_delay() -> float:
-    """Return a random delay in seconds to use between posts."""
-    return random.uniform(MIN_INTERVAL_S, MAX_INTERVAL_S) + random.uniform(0, JITTER_MAX_S)
+def within_daily_limit(niche: str) -> bool:
+    """Return True if today's post count is below the per-niche daily cap.
+
+    A daily cap of 0 (default when not set in YAML) means unlimited.
+    """
+    daily_cap = _max_daily(niche)
+    if daily_cap <= 0:
+        return True  # no limit configured
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT COUNT(*) AS cnt FROM post_log
+               WHERE niche = ? AND tweet_id IS NOT NULL
+                 AND posted_at >= ?""",
+            (niche, today_start.strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ).fetchone()
+    count = row["cnt"] if row else 0
+    if count >= daily_cap:
+        logger.debug(f"[{niche}] daily cap reached ({count}/{daily_cap})")
+        return False
+    return True
+
+
+def jitter_delay(niche: str = "") -> float:
+    """Return a random delay in seconds to use between posts.
+
+    Uses per-niche min/max from YAML if niche is provided.
+    """
+    lo = _min_interval(niche) if niche else MIN_INTERVAL_S
+    hi = _max_interval(niche) if niche else MAX_INTERVAL_S
+    return random.uniform(lo, hi) + random.uniform(0, JITTER_MAX_S)
 
 
 # ── Internal ──────────────────────────────────────────────────────────────────

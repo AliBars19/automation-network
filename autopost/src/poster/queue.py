@@ -31,6 +31,7 @@ from src.poster.rate_limiter import (
     can_post,
     consecutive_failure_count,
     failure_backoff_ok,
+    within_daily_limit,
     within_monthly_limit,
     within_posting_window,
     _BACKOFF_ALERT_N,
@@ -234,6 +235,9 @@ def post_next(niche: str, client: TwitterClient) -> bool:
       - The 20-min minimum gap — posts immediately
     """
     if not within_monthly_limit(niche):
+        return False
+
+    if not within_daily_limit(niche):
         return False
 
     # Always respect failure backoff — if the API is down, hammering won't help

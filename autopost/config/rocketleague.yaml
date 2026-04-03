@@ -185,10 +185,13 @@ sources:
     poll_interval: 1800
 
 # ── Posting schedule ───────────────────────────────────────────────────────────
+# NOTE: RL account had a temporary reach label (shadowban) on 2026-04-02 due to
+# mass deletion. When re-enabling RL sources, use these wider intervals to avoid
+# triggering spam detection again. Max 8 posts/day during recovery period.
 posting:
-  min_interval_seconds: 1200
-  max_interval_seconds: 3600
-  max_daily_posts: 15
+  min_interval_seconds: 1800
+  max_interval_seconds: 4800
+  max_daily_posts: 8
   breaking_news_override: true
 
 # ── Hashtags by content type ───────────────────────────────────────────────────

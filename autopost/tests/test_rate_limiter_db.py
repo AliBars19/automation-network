@@ -22,8 +22,12 @@ from src.poster.rate_limiter import (
     consecutive_failure_count,
     failure_backoff_ok,
     monthly_post_count,
+    within_daily_limit,
     within_monthly_limit,
     _last_post_time,
+    _min_interval,
+    _max_interval,
+    _posting_config,
 )
 
 
@@ -88,9 +92,12 @@ class TestCanPost:
 
     def test_returns_true_when_last_post_is_old_enough(self):
         conn = _make_db()
-        old_time = _utc(offset_minutes=25)  # 25 min ago, MIN_INTERVAL is 20 min
+        old_time = _utc(offset_minutes=25)  # 25 min ago, well past any default min interval
         _log_success(conn, "rocketleague", old_time)
-        with patch("src.poster.rate_limiter.get_db", side_effect=lambda: _ctx(conn)):
+        # Patch _posting_config so the test uses global defaults (MIN_INTERVAL_S=1200s/20min)
+        # rather than whatever the rocketleague.yaml currently specifies.
+        with patch("src.poster.rate_limiter.get_db", side_effect=lambda: _ctx(conn)), \
+             patch("src.poster.rate_limiter._posting_config", return_value={}):
             assert can_post("rocketleague") is True
 
     def test_returns_false_when_last_post_is_too_recent(self):
@@ -247,3 +254,64 @@ class TestMonthlyLimit:
             patch("src.poster.rate_limiter.monthly_post_count", return_value=MONTHLY_LIMIT),
         ):
             assert within_monthly_limit("rocketleague") is False
+
+
+# ── within_daily_limit() ──────────────────────────────────────────────────────
+
+class TestWithinDailyLimit:
+
+    def test_returns_true_when_no_cap_configured(self):
+        """A daily_cap of 0 (not set) means unlimited."""
+        conn = _make_db()
+        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)), \
+             patch("src.poster.rate_limiter._posting_config", return_value={}):
+            assert within_daily_limit("geometrydash") is True
+
+    def test_returns_true_when_below_cap(self):
+        conn = _make_db()
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT12:00:00Z")
+        _log_success(conn, "geometrydash", now)
+        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)), \
+             patch("src.poster.rate_limiter._posting_config", return_value={"max_daily_posts": 5}):
+            assert within_daily_limit("geometrydash") is True
+
+    def test_returns_false_when_cap_reached(self):
+        conn = _make_db()
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT12:00:00Z")
+        for i in range(5):
+            _log_success(conn, "geometrydash", now, tweet_id=f"tid{i}")
+        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)), \
+             patch("src.poster.rate_limiter._posting_config", return_value={"max_daily_posts": 5}):
+            assert within_daily_limit("geometrydash") is False
+
+    def test_yesterday_posts_do_not_count(self):
+        """Posts from yesterday should not count toward today's cap."""
+        conn = _make_db()
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT12:00:00Z")
+        for i in range(10):
+            _log_success(conn, "geometrydash", yesterday, tweet_id=f"yt{i}")
+        with patch("src.poster.rate_limiter.get_db", return_value=_ctx(conn)), \
+             patch("src.poster.rate_limiter._posting_config", return_value={"max_daily_posts": 5}):
+            assert within_daily_limit("geometrydash") is True
+
+
+# ── Per-niche config helpers ─────────────────────────────────────────────────
+
+class TestPerNicheConfig:
+
+    def test_min_interval_falls_back_to_global_default(self):
+        with patch("src.poster.rate_limiter._posting_config", return_value={}):
+            assert _min_interval("geometrydash") == MIN_INTERVAL_S
+
+    def test_min_interval_reads_from_yaml_config(self):
+        with patch("src.poster.rate_limiter._posting_config", return_value={"min_interval_seconds": 1800}):
+            assert _min_interval("rocketleague") == 1800
+
+    def test_max_interval_falls_back_to_global_default(self):
+        from src.poster.rate_limiter import MAX_INTERVAL_S
+        with patch("src.poster.rate_limiter._posting_config", return_value={}):
+            assert _max_interval("geometrydash") == MAX_INTERVAL_S
+
+    def test_max_interval_reads_from_yaml_config(self):
+        with patch("src.poster.rate_limiter._posting_config", return_value={"max_interval_seconds": 4800}):
+            assert _max_interval("rocketleague") == 4800
