@@ -79,7 +79,7 @@ class GeodeIndexCollector(BaseCollector):
                 source_id    = self.source_id,
                 external_id  = f"geode_mod_{mod_id}_{version}",
                 niche        = self.niche,
-                content_type = "mod_update",
+                content_type = "community_mod_update",
                 title        = f"{name} {version} (Geode mod)",
                 url          = source_url,
                 body         = desc,

@@ -6,12 +6,14 @@ Multiple variants exist so posts don't feel repetitive -- one is chosen at rando
 None means "handle as a retweet, not a text template".
 
 Style references:
-  - @ShiftRLE: "Sources:" for rumors, #RLCS on every post, ALL CAPS only for
-    championship celebrations, zero emojis in standard news
+  - @ShiftRLE: "[REPORT]" prefix for breaking transfer news, #RLCS on every post,
+    ALL CAPS only for championship celebrations, zero emojis in standard news
+  - @LiquipediaRL: narrative-driven with specific player @handles and score details
   - @today_gd: Plain factual sentences, level names in quotes, zero emojis,
     zero hashtags, editorial color for significant events
   - @Dexerto: AP-newswire declarative sentences, zero emojis, zero hashtags
-  - @DemonListNews: "{player} has verified '{level}'" construction
+  - @DemonListNews: "{player} has verified '{level}'" with attempts and context
+  - @StatsGd: structured lists with country flags for rankings
 """
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -36,6 +38,15 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{winner} sweep {loser} at {event}. #RLCS",
         "{winner} are your {event_short} Champions. #RLCS",
         "{winner} reverse sweep {loser} at {event}. #RLCS",
+        "Grand Final: {winner} defeats {loser} {score1}-{score2} at {event}. #RLCS",
+        "{winner} {score1}-{score2} {loser} — {event} is over. #RLCS",
+    ],
+
+    # ── Major championship win (ALL CAPS celebration format — top events only) ──
+    "championship_win": [
+        "YOUR {event_short} CHAMPIONS: {winner} 🏆 #RLCS",
+        "{winner} WIN {event_short}. {score1}-{score2} over {loser} in the Grand Final. #RLCS",
+        "{event_short} CHAMPIONS: {winner} 🏆\n\n{winner} defeat {loser} {score1}-{score2} in the Grand Final. #RLCS",
     ],
 
     # ── Esports bracket / match preview ───────────────────────────────────────
@@ -53,13 +64,17 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
     ],
 
     # ── Roster / transfer news ─────────────────────────────────────────────────
+    # Style: [REPORT] prefix for unconfirmed moves (ShiftRLE standard).
+    # Direct declarative statements for confirmed/official announcements.
     "roster_change": [
-        "Sources: {player} is expected to join {team}. #RLCS",
-        "{player} to {team}, per sources. #RLCS",
+        "[REPORT] {player} is set to join {team}. #RLCS",
+        "[REPORT] {player} heading to {team}. #RLCS",
         "{team} sign {player} for {season}. #RLCS",
+        "{team} have signed {player}. #RLCS",
+        "{player} parts ways with {old_team}. #RLCS",
         "{player} has been released from {old_team}. #RLCS",
         "{team} announce their {season} roster:\n\n{roster_list}\n\n#RLCS",
-        "{player} is officially a free agent after parting ways with {old_team}. #RLCS",
+        "{player} is a free agent after departing {old_team}. #RLCS",
     ],
 
     # ── Item shop ──────────────────────────────────────────────────────────────
@@ -166,6 +181,8 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "\"{level}\" moved from No. {old_position} to No. {position} on the Demon List.",
         "Demon List Top 5:\n\n1. {top1}\n2. {top2}\n3. {top3}\n4. {top4}\n5. {top5}",
         "\"{level}\" by {creator} enters the Demon List at No. {position}.",
+        "\"{level}\" is now No. {position} on the Pointercrate Demon List.",
+        "The Demon List has a new entry: \"{level}\" by {creator} at No. {position}.",
     ],
 
     # ── Top 1 verified (biggest news in GD -- only type that gets BREAKING) ──
@@ -173,21 +190,28 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "BREAKING: \"{level}\" has been verified by {player}. New No. 1 on the Demon List.",
         "BREAKING: {player} has verified \"{level}\" after {attempts} attempts. New No. 1 on the Demon List.",
         "{player} has verified \"{level}\", now the hardest rated level in Geometry Dash.",
+        "BREAKING: {player} verifies \"{level}\" — the new hardest level in GD.",
     ],
 
     # ── Level verified ────────────────────────────────────────────────────────
+    # Style: DemonListNews format — specific, includes attempts when available.
     "level_verified": [
         "{player} has verified \"{level}\". No. {position} on the Demon List.",
         "\"{level}\" has been verified by {player} after {attempts} attempts. No. {position} on the Demon List.",
         "\"{level}\" has been verified by {player}, placed at No. {position} on the Demon List.",
+        "{player} verifies \"{level}\" — No. {position} on the Demon List.",
+        "New verified demon: \"{level}\" by {player} (No. {position}).",
     ],
 
     # ── Level beaten (new victor) ──────────────────────────────────────────────
+    # Style: DemonListNews — include attempts, position, and any milestone context.
     "level_beaten": [
         "{player} has beaten \"{level}\" (No. {position} on the Demon List).",
         "New victor on \"{level}\": {player}. No. {position} on the Demon List.",
-        "{player} beats \"{level}\" after {attempts} attempts, currently No. {position} on the Demon List.",
+        "{player} beats \"{level}\" after {attempts} attempts. No. {position} on the Demon List.",
         "{player} becomes the {victor_number} person to beat \"{level}\".",
+        "{player} has beaten \"{level}\" (No. {position}).",
+        "New completion: {player} beats \"{level}\" after {attempts} attempts.",
     ],
 
     # ── Game update ────────────────────────────────────────────────────────────
@@ -227,11 +251,22 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "Weekly Demon: \"{level_name}\" by {creator} ({difficulty}, {stars} stars).",
     ],
 
-    # ── Mod / Geode update ────────────────────────────────────────────────────
+    # ── Geode SDK / mod loader release (github.py) ────────────────────────────
+    # Templates assume mod_name contains the version tag (e.g. "v5.5.3 (geode)").
     "mod_update": [
         "Geode {version} has been released.\n\n{summary}\n\n{url}",
         "Geode mod loader updated to {version}.\n\n{summary}\n\n{url}",
-        "New GD mod: \"{mod_name}\"\n\n{description}\n\n{url}",
+        "Geode {version} is out.\n\n{description}\n\n{url}",
+    ],
+
+    # ── Individual Geode mod update (geode_index.py) ──────────────────────────
+    # For popular mods from the Geode Index — mod_name is the mod's display name
+    # (e.g. "Mega Hack v8", "Geodify"), not the Geode loader itself.
+    "community_mod_update": [
+        "\"{mod_name}\" has been updated to {version}.\n\n{description}\n\n{url}",
+        "New update for \"{mod_name}\" ({version}).\n\n{description}\n\n{url}",
+        "{mod_name} {version} is now available on the Geode mod index.\n\n{description}\n\n{url}",
+        "\"{mod_name}\" {version} — {description}\n\n{url}",
     ],
 
     # ── YouTube video uploads ─────────────────────────────────────────────────

@@ -47,6 +47,7 @@ _PRIORITY: dict[str, int] = {
     "game_update":         2,
     "season_start":        2,
     "event_announcement":  2,
+    "championship_win":    2,   # major tournament win — ALL CAPS format
     "esports_result":      3,
     "roster_change":       3,
     "demon_list_update":   3,
@@ -56,6 +57,7 @@ _PRIORITY: dict[str, int] = {
     "daily_level":         4,
     "weekly_demon":        4,
     "mod_update":          4,
+    "community_mod_update": 4,
     "level_rated":         4,
     "esports_matchup":     4,
     "level_beaten":        5,

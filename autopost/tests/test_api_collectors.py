@@ -1932,7 +1932,7 @@ class TestGeodeIndexCollector:
             items = await collector.collect()
 
         assert len(items) == 1
-        assert items[0].content_type == "mod_update"
+        assert items[0].content_type == "community_mod_update"
         assert items[0].external_id == "geode_mod_spaghettdev.megahack_8.1.0"
         assert items[0].metadata["mod_name"] == "Mega Hack v8"
         assert items[0].metadata["version"] == "8.1.0"

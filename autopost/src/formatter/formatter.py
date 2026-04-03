@@ -127,6 +127,7 @@ _NICHE_HASHTAG: dict[str, str] = {
 # Used to tag players in verification/completion tweets so they see and
 # potentially retweet. Handles without @ prefix — we add it in _build_context.
 _GD_PLAYER_HANDLES: dict[str, str] = {
+    # Top players / verifiers
     "zoink": "gdzoink",
     "trick": "GmdTrick",
     "doggie": "DasherDoggie",
@@ -150,6 +151,32 @@ _GD_PLAYER_HANDLES: dict[str, str] = {
     "guitarhero": "OfficialEspGHS",
     "cuatrocientos": "Jadrichiev1",
     "knobbelboy": "knobbelboy",
+    # Additional notable players / creators
+    "serponge": "SerpongeGD",
+    "manix648": "Manix648GD",
+    "dorami": "DoraMiGD",
+    "cyclic": "CyclicGD",
+    "xender game": "xendergame",
+    "xendergame": "xendergame",
+    "spkale": "SpKale",
+    "srgui": "SrGuillester",
+    "srguillester": "SrGuillester",
+    "giron": "GironGD",
+    "kiba": "KibaGD",
+    "paqoe": "paqoeGD",
+    "ryamu": "ryamuGD",
+    "michigun": "michigunGD",
+    "dolphy": "Dolphy_GD",
+    "stormfly": "StormflyGD",
+    "mulpan": "MulpanGD",
+    "pennutoh": "Pennutoh",
+    "ggb0y": "Ggb0y",
+    "bo": "Bo_GD",
+    "komp": "KompGD",
+    "ilrell": "ILRELL",
+    "akunakunn": "Akunakunn",
+    "renn241": "Renn241GD",
+    "arraegen": "Arraegen",
 }
 
 
@@ -319,6 +346,8 @@ def _pick_emoji(niche: str, content_type: str) -> str:
         "demon_list_update":   "📊",
         "game_update":         "🔺",
         "mod_update":          "🔧",
+        "community_mod_update": "🔧",
+        "championship_win":    "🏆",
         "level_rated":         "⭐",
         "daily_level":         "📅",
         "weekly_demon":        "👹",
