@@ -245,7 +245,13 @@ def build_scheduler(niches: list[str] = ("rocketleague", "geometrydash")) -> Asy
             name   = f"Stale cleanup ({niche})",
         )
 
-        logger.info(f"[Scheduler] {niche}: {len(sources)} sources scheduled")
+        if sources:
+            logger.info(f"[Scheduler] {niche}: {len(sources)} sources scheduled")
+        else:
+            logger.error(
+                f"[Scheduler] {niche}: 0 sources enabled — "
+                f"check DB (UPDATE sources SET enabled=1 WHERE niche='{niche}')"
+            )
 
     # ── Daily DB cleanup (03:00 UTC) — runs once regardless of niche count ─────
     if not scheduler.get_job("db_cleanup"):
