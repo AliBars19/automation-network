@@ -44,6 +44,11 @@ _DAILY_CAPS: dict[str, int] = {
     "robtop_tweet":      6,
     "youtube_video":     4,
     "flashback":         1,
+    "demon_list_update": 4,
+    "level_verified":    4,
+    "level_beaten":      3,
+    "first_victor":      2,
+    "community_mod_update": 3,
 }
 
 # Engagement thresholds: minimum likes for community tweets to be considered

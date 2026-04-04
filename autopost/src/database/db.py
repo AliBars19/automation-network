@@ -176,10 +176,17 @@ def mark_failed(conn: sqlite3.Connection, queue_id: int, error: str) -> None:
         (now, queue_id),
     )
     row = conn.execute("SELECT * FROM tweet_queue WHERE id = ?", (queue_id,)).fetchone()
+    content_type = ""
+    if row["raw_content_id"]:
+        rc = conn.execute(
+            "SELECT content_type FROM raw_content WHERE id = ?", (row["raw_content_id"],)
+        ).fetchone()
+        if rc:
+            content_type = rc["content_type"]
     conn.execute(
-        """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at, error)
-           VALUES (?, ?, NULL, ?, ?, ?)""",
-        (queue_id, row["niche"], row["tweet_text"], now, error),
+        """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, content_type, posted_at, error)
+           VALUES (?, ?, NULL, ?, ?, ?, ?)""",
+        (queue_id, row["niche"], row["tweet_text"], content_type, now, error),
     )
 
 

@@ -51,6 +51,7 @@ _RL_RELEVANCE: set[str] = {
 _GD_RELEVANCE: set[str] = {
     # Game identity
     "geometry dash", "geometrydash", "robtop", "rubrub",
+    "geometrydash.com", "gd website", "play in browser",
     # Demon list
     "demon list", "demonlist", "extreme demon", "insane demon",
     "pointercrate", "aredl", "challenge list",
@@ -61,10 +62,10 @@ _GD_RELEVANCE: set[str] = {
     "daily level", "weekly demon", "gauntlet", "map pack",
     "geode", "texture pack", "megahack",
     "gd level", "gd update", "gd mod", "gd creator",
-    "gdbrowser", "newgrounds",
+    "gdbrowser", "newgrounds", "platformer mode", "the tower",
     # Known community figures (scoped names)
     "dashword", "gd colon", "wulzy", "npesta",
-    "aeonair", "viprin", "doggie",
+    "aeonair", "viprin", "doggie", "neiro",
     # Scoped records / stats
     "gd world record", "demon list top",
     # Hashtags
