@@ -9,7 +9,18 @@ Queue runner — two responsibilities:
        Pulls the highest-priority queued tweet and posts it via TwitterClient.
        Enforces rate limits and the monthly cap before every post.
 """
+import re
+
 from loguru import logger
+
+# Secondary guard: conversational prefixes that shouldn't be queued even if
+# they slip past the collection-time filter in twitter_monitor.py.
+_CONV_PREFIX_RE = re.compile(
+    r"^(also[.,!\s]|by the way|btw[.,!\s]|honestly[.,!\s]"
+    r"|ngl[.,!\s]|wait[.,!\s]|oh and\b|oh also\b|update:|"
+    r"i (just|can't|might|think|forgot|need|want|swear)\b)",
+    re.I,
+)
 
 from src.collectors.base import BaseCollector, RawContent
 from src.database.db import (
@@ -122,6 +133,16 @@ async def collect_and_queue(collector: BaseCollector, niche: str) -> int:
                     f" {item.url[:70]}"
                 )
                 continue
+
+            # Secondary conversational prefix guard for monitored tweets.
+            # Collection-time filter should catch these, but this is a safety net.
+            if item.content_type == "monitored_tweet":
+                title_no_url = re.sub(r"https?://\S+", "", item.title).strip()
+                if _CONV_PREFIX_RE.match(title_no_url):
+                    logger.debug(
+                        f"[{niche}] conv-prefix safety net: {item.title[:60]}"
+                    )
+                    continue
 
             # Quality gate: community content must pass engagement + cap checks
             item_age = 0.0

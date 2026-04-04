@@ -21,6 +21,20 @@ _MAX_RESULTS = 5   # videos to check per poll (keeps quota usage low)
 _SHORTS_RE = re.compile(r"#shorts?\b", re.I)
 _LOW_QUALITY_TITLE_LEN = 15  # titles shorter than this are likely Shorts captions
 
+# Off-topic title signals for GD niche — merch drops, vlogs, unrelated games
+_GD_OFF_TOPIC_RE = re.compile(
+    r"\bmerch(?:andise)?\b"   # "new merch", "merch drop", "merch store"
+    r"|\bnew\s+drop\b"        # product drop (not level drop)
+    r"|\broom\s+tour\b"       # personal vlog
+    r"|\bstudio\s+tour\b"     # personal vlog
+    r"|\bvlog\b"              # explicit vlog tag
+    r"|\birl\b"               # in-real-life event
+    r"|\bminecraft\b"         # other game
+    r"|\bfortnite\b"          # other game
+    r"|\bvalorant\b",         # other game
+    re.I,
+)
+
 
 def _is_short_or_low_quality(title: str, description: str) -> bool:
     """Return True if the video looks like a YouTube Short or low-effort content."""
@@ -141,6 +155,11 @@ class YouTubeCollector(BaseCollector):
             # or "#Shorts" / "#Short" in title/description.
             if _is_short_or_low_quality(title, description):
                 logger.debug(f"[YouTube] skipping Short/low-quality: {title[:60]}")
+                continue
+
+            # For GD niche: skip videos about merch, vlogs, or other games
+            if self.niche == "geometrydash" and _GD_OFF_TOPIC_RE.search(title):
+                logger.debug(f"[YouTube] skipping off-topic GD video: {title[:60]}")
                 continue
 
             content_type = "youtube_video"

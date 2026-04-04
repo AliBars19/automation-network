@@ -357,9 +357,9 @@ async def _fetch_rated(
         if not level_id:
             continue
 
-        # Skip levels that show as unrated (difficulty N/A or 0 stars) —
-        # these are GDBrowser cache artifacts, not actual ratings.
-        if difficulty == "N/A" or stars == 0:
+        # Skip levels that show as unrated — these are GDBrowser cache artifacts.
+        # Catches both numeric 0 → "N/A" and string "Unrated" / "Unknown" from API.
+        if difficulty not in _DIFFICULTY_STR or difficulty == "N/A" or stars == 0:
             continue
 
         is_notable = author.lower() in _NOTABLE_CREATORS

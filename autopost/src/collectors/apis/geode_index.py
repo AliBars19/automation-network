@@ -77,6 +77,11 @@ class GeodeIndexCollector(BaseCollector):
             name     = latest.get("name", mod_id)
             version  = latest.get("version", "")
             desc     = latest.get("description", "")
+
+            # Also skip mods whose description references meme content
+            if desc and any(sig in desc.lower() for sig in _MEME_NAME_SIGNALS):
+                logger.debug(f"[GeodeIndex] skipping meme-desc mod: {name[:50]}")
+                continue
             dl_link  = latest.get("download_link", "")
 
             if not mod_id or not version:
