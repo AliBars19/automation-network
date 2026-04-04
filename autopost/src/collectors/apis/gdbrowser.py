@@ -357,6 +357,11 @@ async def _fetch_rated(
         if not level_id:
             continue
 
+        # Skip levels that show as unrated (difficulty N/A or 0 stars) —
+        # these are GDBrowser cache artifacts, not actual ratings.
+        if difficulty == "N/A" or stars == 0:
+            continue
+
         is_notable = author.lower() in _NOTABLE_CREATORS
         is_extreme = difficulty == "Extreme Demon"
         if not (is_notable or is_extreme):

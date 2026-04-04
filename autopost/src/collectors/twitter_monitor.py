@@ -163,8 +163,8 @@ class TwitterMonitorCollector(BaseCollector):
             if "retweeted_status_result" in tweet:
                 continue
 
-            # Skip replies
-            if legacy.get("in_reply_to_user_id_str"):
+            # Skip replies (to others AND self-threads)
+            if legacy.get("in_reply_to_user_id_str") or legacy.get("in_reply_to_status_id_str"):
                 continue
 
             tweet_id = legacy.get("id_str", "")
@@ -206,6 +206,21 @@ class TwitterMonitorCollector(BaseCollector):
                 _tweet_re.compile(r"^\d+-\d+\.?\s*$"),  # bare scores "3-0."
                 _tweet_re.compile(r"^(a{3,}h|o{3,}h|e{3,})", _tweet_re.I),  # "aaaaaaaah"
             ]
+            # Conversational prefixes that indicate mid-thread or casual tweets.
+            # Only enforced for require_relevance accounts (player/creator accs).
+            if self._require_relevance:
+                _CONV_PREFIX_RE = _tweet_re.compile(
+                    r"^(also[.,!\s]|by the way|btw[.,!\s]|honestly[.,!\s]"
+                    r"|ngl[.,!\s]|wait[.,!\s]|oh and\b|oh also\b|update:|"
+                    r"i (just|can't|might|think|forgot|need|want|swear)\b)",
+                    _tweet_re.I,
+                )
+                if _CONV_PREFIX_RE.match(text_no_emoji.strip()):
+                    logger.debug(
+                        f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
+                        f"conversational prefix — skipping"
+                    )
+                    continue
             if any(pat.match(text_no_emoji.strip()) for pat in _FILLER_RE):
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
