@@ -11,6 +11,9 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 
+# RFC 6598 carrier-grade NAT range — not covered by is_private in Python < 3.11
+_CGNAT_BLOCK = ipaddress.ip_network("100.64.0.0/10")
+
 _BLOCKED_HOSTS = {
     "localhost",
     "0.0.0.0",
@@ -50,6 +53,8 @@ def is_safe_url(url: str) -> bool:
             addr = ipaddress.ip_address(host)
             if addr.is_private or addr.is_link_local or addr.is_loopback:
                 return False
+            if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT_BLOCK:
+                return False
         except ValueError:
             pass
         # DNS resolution check — catches hex/decimal IP representations
@@ -58,6 +63,8 @@ def is_safe_url(url: str) -> bool:
             resolved = socket.gethostbyname(host)
             addr = ipaddress.ip_address(resolved)
             if addr.is_private or addr.is_link_local or addr.is_loopback:
+                return False
+            if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT_BLOCK:
                 return False
         except (socket.gaierror, ValueError):
             pass  # unresolvable hostname — let it through, httpx will fail

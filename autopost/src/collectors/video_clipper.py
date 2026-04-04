@@ -110,6 +110,12 @@ def clip_reddit_video(reddit_url: str, post_id: str) -> str | None:
     if os.path.exists(output_path):
         return output_path
 
+    # SSRF guard: validate the URL before passing to yt-dlp subprocess
+    from src.collectors.url_utils import is_safe_url
+    if not is_safe_url(reddit_url):
+        logger.warning(f"[VideoClipper] blocked unsafe reddit URL: {reddit_url[:80]}")
+        return None
+
     try:
         cmd = [
             "yt-dlp",

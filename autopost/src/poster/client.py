@@ -89,37 +89,6 @@ class TwitterClient:
             logger.error(f"[{self.niche}] failed to post tweet: {exc}")
             return None
 
-    def post_thread(self, tweets: list[str]) -> str | None:
-        """
-        Post a chain of tweets as a self-reply thread.
-        Returns the ID of the first tweet on success, None on failure.
-        """
-        if not tweets:
-            return None
-        parent_id = None
-        first_id = None
-        for text in tweets:
-            tweet_id = self.post_tweet(text, reply_to=parent_id)
-            if tweet_id is None:
-                return first_id  # partial thread — return what we posted
-            if first_id is None:
-                first_id = tweet_id
-            parent_id = tweet_id
-        return first_id
-
-    def retweet(self, tweet_id: str) -> bool:
-        """Retweet by ID. Returns True on success."""
-        if self.dry_run:
-            logger.info(f"[{self.niche}] DRY RUN retweet: {tweet_id}")
-            return True
-        try:
-            self._client.retweet(tweet_id=tweet_id, user_auth=True)
-            logger.success(f"[{self.niche}] retweeted {tweet_id}")
-            return True
-        except tweepy.TweepyException as exc:
-            logger.error(f"[{self.niche}] failed to retweet {tweet_id}: {exc}")
-            return False
-
     def quote_tweet(self, tweet_id: str, text: str) -> str | None:
         """
         Post a quote tweet (text + embedded original tweet).
@@ -186,13 +155,3 @@ class TwitterClient:
                 logger.error(f"[{self.niche}] media upload failed: {exc} — posting without image")
                 return None
 
-    # ── Rate limit info ────────────────────────────────────────────────────────
-
-    def get_rate_limit_status(self) -> dict:
-        """Return remaining requests for statuses/update endpoint (v1.1)."""
-        if self.dry_run or self._api is None:
-            return {}
-        try:
-            return self._api.rate_limit_status(resources="statuses")
-        except tweepy.TweepyException:
-            return {}

@@ -13,6 +13,21 @@ from email.utils import parsedate_to_datetime
 
 from loguru import logger
 
+# ── Pre-compiled filters (hoisted from per-tweet loop for performance) ────────
+
+_FILLER_PATTERNS = [
+    re.compile(r"^(hmm+|ah+|oh+|wow+|lol+|lmao|bruh|haha+)[.!?…\s]*$", re.I),
+    re.compile(r"^\d+-\d+\.?\s*$"),  # bare scores "3-0."
+    re.compile(r"^(a{3,}h|o{3,}h|e{3,})", re.I),  # "aaaaaaaah"
+]
+
+_CONV_PREFIX_PATTERN = re.compile(
+    r"^(also[.,!\s]|by the way|btw[.,!\s]|honestly[.,!\s]"
+    r"|ngl[.,!\s]|wait[.,!\s]|oh and\b|oh also\b|update:|"
+    r"i (just|can't|might|think|forgot|need|want|swear)\b)",
+    re.I,
+)
+
 from src.collectors.base import BaseCollector, RawContent
 from src.collectors.twscrape_pool import OP_USER_TWEETS, get_api, resolve_user_id
 
@@ -187,9 +202,8 @@ class TwitterMonitorCollector(BaseCollector):
             # Skip low-quality tweets: emoji-only, too short, or no substance.
             # Retweet sources (official accounts) get a lower bar — they're
             # curated and their short hype tweets are part of the brand.
-            import re as _tweet_re
-            text_no_urls = _tweet_re.sub(r"https?://\S+", "", text).strip()
-            text_no_emoji = _tweet_re.sub(
+            text_no_urls = re.sub(r"https?://\S+", "", text).strip()
+            text_no_emoji = re.sub(
                 r"[\U0001F600-\U0001FAFF\U00002600-\U000027BF\u200d\ufe0f]+", "", text_no_urls
             ).strip()
             _min_len = 15 if self.is_retweet_source else 30
@@ -201,27 +215,15 @@ class TwitterMonitorCollector(BaseCollector):
                 continue
 
             # Skip filler/personality tweets that have no news value
-            _FILLER_RE = [
-                _tweet_re.compile(r"^(hmm+|ah+|oh+|wow+|lol+|lmao|bruh|haha+)[.!?…\s]*$", _tweet_re.I),
-                _tweet_re.compile(r"^\d+-\d+\.?\s*$"),  # bare scores "3-0."
-                _tweet_re.compile(r"^(a{3,}h|o{3,}h|e{3,})", _tweet_re.I),  # "aaaaaaaah"
-            ]
-            # Conversational prefixes that indicate mid-thread or casual tweets.
-            # Only enforced for require_relevance accounts (player/creator accs).
+            # Conversational prefixes: only enforced for require_relevance accounts
             if self._require_relevance:
-                _CONV_PREFIX_RE = _tweet_re.compile(
-                    r"^(also[.,!\s]|by the way|btw[.,!\s]|honestly[.,!\s]"
-                    r"|ngl[.,!\s]|wait[.,!\s]|oh and\b|oh also\b|update:|"
-                    r"i (just|can't|might|think|forgot|need|want|swear)\b)",
-                    _tweet_re.I,
-                )
-                if _CONV_PREFIX_RE.match(text_no_emoji.strip()):
+                if _CONV_PREFIX_PATTERN.match(text_no_emoji.strip()):
                     logger.debug(
                         f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                         f"conversational prefix — skipping"
                     )
                     continue
-            if any(pat.match(text_no_emoji.strip()) for pat in _FILLER_RE):
+            if any(pat.match(text_no_emoji.strip()) for pat in _FILLER_PATTERNS):
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                     f"filler pattern — skipping"
@@ -233,8 +235,8 @@ class TwitterMonitorCollector(BaseCollector):
             # and short hype tweets like "PLAYOFF SATURDAY IS LIVE" are legit.
             if not self.is_retweet_source:
                 has_substance = (
-                    _tweet_re.search(r"(?<!\A)\b[A-Z][a-z]{2,}", text_no_urls)  # proper noun
-                    or _tweet_re.search(r"\d", text_no_urls)                     # number
+                    re.search(r"(?<!\A)\b[A-Z][a-z]{2,}", text_no_urls)  # proper noun
+                    or re.search(r"\d", text_no_urls)                     # number
                     or "#" in text_no_urls                                        # hashtag
                     or "@" in text_no_urls                                        # mention
                 )

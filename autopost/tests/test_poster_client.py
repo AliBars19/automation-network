@@ -63,16 +63,6 @@ class TestDryRunMode:
         result = client.post_tweet("Hello world", media_path="/tmp/img.jpg")
         assert result == "dry_run_id"
 
-    def test_retweet_returns_true(self):
-        client = _dry_run_client()
-        result = client.retweet("12345678")
-        assert result is True
-
-    def test_get_rate_limit_returns_empty_dict(self):
-        client = _dry_run_client()
-        result = client.get_rate_limit_status()
-        assert result == {}
-
     def test_client_and_api_are_none_in_dry_run(self):
         client = _dry_run_client()
         assert client._client is None
@@ -153,30 +143,6 @@ class TestPostTweetLive:
             os.unlink(tmp_path)
 
 
-# ── Live mode — retweet() ─────────────────────────────────────────────────────
-
-class TestRetweetLive:
-
-    def test_returns_true_on_success(self):
-        client = _live_client()
-        client._client = MagicMock()
-        client._client.retweet.return_value = MagicMock()
-
-        result = client.retweet("98765")
-
-        assert result is True
-        client._client.retweet.assert_called_once_with(tweet_id="98765", user_auth=True)
-
-    def test_returns_false_on_tweepy_exception(self):
-        client = _live_client()
-        client._client = MagicMock()
-        client._client.retweet.side_effect = tweepy.TweepyException("already retweeted")
-
-        result = client.retweet("98765")
-
-        assert result is False
-
-
 # ── _upload_media() ───────────────────────────────────────────────────────────
 
 class TestUploadMedia:
@@ -238,24 +204,3 @@ class TestUploadMedia:
             os.unlink(tmp_path)
 
 
-# ── get_rate_limit_status() ───────────────────────────────────────────────────
-
-class TestRateLimitStatus:
-
-    def test_returns_dict_on_success(self):
-        client = _live_client()
-        client._api = MagicMock()
-        client._api.rate_limit_status.return_value = {"resources": {"statuses": {}}}
-
-        result = client.get_rate_limit_status()
-
-        assert isinstance(result, dict)
-
-    def test_returns_empty_dict_on_exception(self):
-        client = _live_client()
-        client._api = MagicMock()
-        client._api.rate_limit_status.side_effect = tweepy.TweepyException("forbidden")
-
-        result = client.get_rate_limit_status()
-
-        assert result == {}

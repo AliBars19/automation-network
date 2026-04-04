@@ -114,7 +114,10 @@ async def _probe_api(config: dict, client: httpx.AsyncClient) -> tuple[str, str]
         return "healthy", ""
 
     if collector == "github":
+        import re as _hc_re
         repo = config.get("repo", "")
+        if not _hc_re.fullmatch(r"[\w.\-]+/[\w.\-]+", repo):
+            return "dead", "invalid repo format"
         resp = await client.get(
             f"https://api.github.com/repos/{repo}/releases",
             params={"per_page": 1},

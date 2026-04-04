@@ -62,40 +62,6 @@ class TestPostTweetReplyTo:
         )
 
 
-# ── client.py: post_thread (lines 97-108) ───────────────────────────────────
-
-class TestPostThread:
-    def test_empty_list_returns_none(self):
-        client = _dry_client()
-        assert client.post_thread([]) is None
-
-    def test_single_tweet_thread(self):
-        client = _dry_client()
-        result = client.post_thread(["Hello"])
-        assert result == "dry_run_id"
-
-    def test_multi_tweet_thread(self):
-        client = _dry_client()
-        result = client.post_thread(["Tweet 1", "Tweet 2", "Tweet 3"])
-        assert result == "dry_run_id"
-
-    def test_partial_thread_on_failure(self):
-        """If second tweet fails, return the first tweet's ID."""
-        client = _live_client()
-        call_count = 0
-
-        def _mock_post(text, reply_to=None, media_path=None):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return "first_id"
-            return None  # second tweet fails
-
-        client.post_tweet = _mock_post
-        result = client.post_thread(["A", "B"])
-        assert result == "first_id"
-
-
 # ── queue.py: _split_url (lines 288-295) ────────────────────────────────────
 
 class TestSplitUrl:
