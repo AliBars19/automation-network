@@ -111,8 +111,8 @@ sources:
   - name: Geode Mods Catalog
     type: api
     collector: geode_index
-    min_downloads: 25000
-    max_items: 3
+    min_downloads: 20000
+    max_items: 4
     poll_interval: 3600
 
   - name: Geode SDK (GitHub releases)

@@ -1347,12 +1347,12 @@ class TestQualityGatePipeline:
         conn = _make_db()
         sid = upsert_source(conn, "geometrydash", "comm-clips-src", "rss", {})
         conn.commit()
-        self._seed_post_log(conn, "geometrydash", "community_mod_update", 3)
+        self._seed_post_log(conn, "geometrydash", "community_mod_update", 4)
 
-        # 4th community_mod_update — should be rejected (cap=3)
+        # 5th community_mod_update — should be rejected (cap=4)
         item = RawContent(
             source_id=sid,
-            external_id="cap-test-004",
+            external_id="cap-test-005",
             niche="geometrydash",
             content_type="community_mod_update",
             title="Some Mod 1.0.0 (Geode mod)",
@@ -1382,7 +1382,7 @@ class TestQualityGatePipeline:
         ):
             count = await collect_and_queue(_FixedCollector(), "geometrydash")
 
-        assert count == 0
+        assert count == 0  # cap=4, 5th item must be rejected
 
 
 # ══════════════════════════════════════════════════════════════════════════════
