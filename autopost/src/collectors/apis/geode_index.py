@@ -27,6 +27,10 @@ _TIMEOUT  = 15
 _DEFAULT_MIN_DOWNLOADS = 25_000
 _DEFAULT_MAX_ITEMS     = 3
 _PAGE_SIZE             = 25   # fetch more than we need so filters have room to work
+_MAX_MOD_NAME_LENGTH   = 55   # skip mods with joke/meme names (e.g. "Click Sounds Mega Neo Full Ultra...")
+
+# Substrings that indicate a meme/joke mod name — skip these even if popular
+_MEME_NAME_SIGNALS = ("game of the year", "mega neo", "ultra s", "deluxe edition")
 
 
 class GeodeIndexCollector(BaseCollector):
@@ -52,6 +56,16 @@ class GeodeIndexCollector(BaseCollector):
             total_downloads  = mod.get("download_count", 0)
 
             if not is_featured and total_downloads < self.min_downloads:
+                continue
+
+            # Skip mods with joke/meme names regardless of download count
+            versions_check = mod.get("versions", [])
+            raw_name = versions_check[0].get("name", mod.get("id", "")) if versions_check else mod.get("id", "")
+            if len(raw_name) > _MAX_MOD_NAME_LENGTH:
+                logger.debug(f"[GeodeIndex] skipping meme-name mod: {raw_name[:60]}")
+                continue
+            if any(sig in raw_name.lower() for sig in _MEME_NAME_SIGNALS):
+                logger.debug(f"[GeodeIndex] skipping meme-name mod: {raw_name[:60]}")
                 continue
 
             versions = mod.get("versions", [])

@@ -25,7 +25,9 @@ _RL_KEYWORDS: list[tuple[list[str], str]] = [
 ]
 
 _GD_KEYWORDS: list[tuple[list[str], str]] = [
-    (["top 1", "new #1", "new top 1", "hardest level"],                       "top1_verified"),
+    # "top 1" intentionally removed — too broad (matches "top 1000", "top 10 levels", etc.)
+    # Use the specific phrases that only appear in actual demon-list top-1 announcements.
+    (["new top 1", "new #1", "top 1 demon", "top 1 verified", "hardest level"],  "top1_verified"),
     (["geode", "mod loader"],                                                 "mod_update"),
     (["update", "patch", "new version", " 2.2", " 2.1"],                     "game_update"),
     (["verified", "verification", "two-player", "2-player", "2p", "collab"], "level_verified"),

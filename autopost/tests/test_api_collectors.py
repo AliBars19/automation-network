@@ -2021,6 +2021,42 @@ class TestGeodeIndexCollector:
 
         assert len(items[0].metadata["description"]) <= 200
 
+    @pytest.mark.asyncio
+    async def test_meme_name_mod_skipped(self):
+        """Mods with joke/meme names (e.g. 'Click Sounds Mega Neo...') are filtered out."""
+        meme_mod = _make_geode_mod(
+            name="Click Sounds Mega Neo Full Ultra S26 Deluxe Game of the Year Edition",
+            download_count=100_000,
+        )
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[meme_mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert items == [], "Meme-name mod should be filtered out even with high download count"
+
+    @pytest.mark.asyncio
+    async def test_long_mod_name_skipped(self):
+        """Mods with names > 55 chars are filtered to avoid spam-looking tweets."""
+        long_name_mod = _make_geode_mod(
+            name="A" * 56,
+            download_count=50_000,
+        )
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[long_name_mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert items == [], "Mod with name > 55 chars should be filtered"
+
+    @pytest.mark.asyncio
+    async def test_normal_mod_not_filtered(self):
+        """Normal mod names with ≤55 chars and no meme signals pass through."""
+        mod = _make_geode_mod(name="Mega Hack v8", download_count=50_000)
+        with patch("src.collectors.apis.geode_index._fetch_recent_mods", new=AsyncMock(return_value=[mod])):
+            collector = GeodeIndexCollector(source_id=1, config={}, niche="geometrydash")
+            items = await collector.collect()
+
+        assert len(items) == 1
+
 
 class TestFetchRecentMods:
 

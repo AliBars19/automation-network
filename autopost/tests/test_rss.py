@@ -175,6 +175,17 @@ class TestDetectContentType:
     def test_gd_top1_keyword(self):
         assert _detect_content_type("New top 1 demon!", "", "geometrydash") == "top1_verified"
 
+    def test_gd_top1_does_not_match_top_1000(self):
+        # "Top 1000" in Steam News articles must NOT trigger top1_verified
+        body = "Play Stereo Madness, check the Top 1000 leaderboards and more"
+        assert _detect_content_type("GeometryDash.com is Live!", body, "geometrydash") == "game_update"
+
+    def test_gd_new_top1_keyword_still_matches(self):
+        assert _detect_content_type("New top 1 achieved: Tartarus", "", "geometrydash") == "top1_verified"
+
+    def test_gd_new_hash1_still_matches(self):
+        assert _detect_content_type("new #1 on the Demon List!", "", "geometrydash") == "top1_verified"
+
     def test_gd_geode_mod_loader(self):
         assert _detect_content_type("Geode mod loader v2 released", "", "geometrydash") == "mod_update"
 
