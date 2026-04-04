@@ -71,10 +71,14 @@ class TestClipYoutubeVideoCacheHit:
 
         expected_path = str(_FAKE_MEDIA_DIR / f"yt_clip_{_FAKE_VIDEO_ID}.mp4")
 
+        def _exists(path):
+            # .skip sentinel → False; .mp4 cache → True
+            return str(path).endswith(".mp4")
+
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
             patch("src.collectors.video_clipper.MEDIA_DIR", _FAKE_MEDIA_DIR),
-            patch("os.path.exists", return_value=True),
+            patch("os.path.exists", side_effect=_exists),
             patch("subprocess.run") as mock_run,
         ):
             mock_cookies.exists.return_value = True
@@ -94,11 +98,11 @@ class TestClipYoutubeVideoSuccess:
         proc = _make_completed_process(returncode=0)
 
         def _exists_side_effect(path):
-            # First call (cache check) → False; second call (size check) → True
+            # calls: skip-check → False, cache-check → False, post-download → True
             if not hasattr(_exists_side_effect, "_count"):
                 _exists_side_effect._count = 0
             _exists_side_effect._count += 1
-            return _exists_side_effect._count > 1
+            return _exists_side_effect._count > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -120,7 +124,8 @@ class TestClipYoutubeVideoSuccess:
 
         def _exists(path):
             call_counter["n"] += 1
-            return call_counter["n"] > 1
+            # skip-check(1)→F, cache-check(2)→F, post-download(3)→T
+            return call_counter["n"] > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -132,10 +137,11 @@ class TestClipYoutubeVideoSuccess:
             mock_cookies.exists.return_value = True
             clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
 
-        cmd_used = mock_run.call_args[0][0]
-        assert _FAKE_VIDEO_URL in cmd_used
+        # First subprocess call is yt-dlp; second (if any) is ffprobe from _ensure_h264
+        yt_dlp_cmd = mock_run.call_args_list[0][0][0]
+        assert _FAKE_VIDEO_URL in yt_dlp_cmd
         expected_output = str(_FAKE_MEDIA_DIR / f"yt_clip_{_FAKE_VIDEO_ID}.mp4")
-        assert expected_output in cmd_used
+        assert expected_output in yt_dlp_cmd
 
     def test_cookies_path_passed_to_yt_dlp(self):
         from src.collectors.video_clipper import clip_youtube_video
@@ -145,7 +151,7 @@ class TestClipYoutubeVideoSuccess:
 
         def _exists(path):
             call_counter["n"] += 1
-            return call_counter["n"] > 1
+            return call_counter["n"] > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -158,8 +164,8 @@ class TestClipYoutubeVideoSuccess:
             mock_cookies.__str__ = MagicMock(return_value=str(_FAKE_COOKIES))
             clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
 
-        cmd_used = mock_run.call_args[0][0]
-        assert "--cookies" in cmd_used
+        yt_dlp_cmd = mock_run.call_args_list[0][0][0]
+        assert "--cookies" in yt_dlp_cmd
 
 
 class TestClipYoutubeVideoFailure:
@@ -280,7 +286,8 @@ class TestClipYoutubeVideoFileTooLarge:
 
         def _exists(path):
             call_counter["n"] += 1
-            return call_counter["n"] > 1  # False on cache check, True on size check
+            # skip(1)→F, cache(2)→F, post-download(3)→T
+            return call_counter["n"] > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -305,7 +312,7 @@ class TestClipYoutubeVideoFileTooLarge:
 
         def _exists(path):
             call_counter["n"] += 1
-            return call_counter["n"] > 1
+            return call_counter["n"] > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -330,7 +337,7 @@ class TestClipYoutubeVideoFileTooLarge:
 
         def _exists(path):
             call_counter["n"] += 1
-            return call_counter["n"] > 1
+            return call_counter["n"] > 2
 
         with (
             patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
@@ -365,6 +372,121 @@ class TestClipYoutubeVideoFileNotCreated:
             result = clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
 
         assert result is None
+
+
+class TestClipYoutubeVideoLiveStream:
+    """Live-stream videos must create a .skip sentinel and return None."""
+
+    def test_live_stream_creates_skip_sentinel(self):
+        from src.collectors.video_clipper import clip_youtube_video
+
+        proc = _make_completed_process(
+            returncode=1,
+            stderr="ERROR: [youtube] abc123: This live event will begin in a few moments.",
+        )
+
+        with (
+            patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
+            patch("src.collectors.video_clipper.MEDIA_DIR", _FAKE_MEDIA_DIR),
+            patch("os.path.exists", return_value=False),
+            patch("subprocess.run", return_value=proc),
+            patch("pathlib.Path.touch") as mock_touch,
+        ):
+            mock_cookies.exists.return_value = True
+            result = clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
+
+        assert result is None
+        mock_touch.assert_called_once()
+
+    def test_skip_sentinel_prevents_retry(self):
+        """Once .skip exists, yt-dlp must not be called again."""
+        from src.collectors.video_clipper import clip_youtube_video
+
+        def _exists(path):
+            return str(path).endswith(".skip")  # sentinel present, mp4 absent
+
+        with (
+            patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
+            patch("src.collectors.video_clipper.MEDIA_DIR", _FAKE_MEDIA_DIR),
+            patch("os.path.exists", side_effect=_exists),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_cookies.exists.return_value = True
+            result = clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
+
+        assert result is None
+        mock_run.assert_not_called()
+
+    def test_non_live_stream_failure_does_not_create_sentinel(self):
+        """Only 'live event' errors should create a .skip sentinel."""
+        from src.collectors.video_clipper import clip_youtube_video
+
+        proc = _make_completed_process(returncode=1, stderr="ERROR: network error")
+
+        with (
+            patch("src.collectors.video_clipper._COOKIES_PATH") as mock_cookies,
+            patch("src.collectors.video_clipper.MEDIA_DIR", _FAKE_MEDIA_DIR),
+            patch("os.path.exists", return_value=False),
+            patch("subprocess.run", return_value=proc),
+            patch("pathlib.Path.touch") as mock_touch,
+        ):
+            mock_cookies.exists.return_value = True
+            clip_youtube_video(_FAKE_VIDEO_URL, _FAKE_VIDEO_ID)
+
+        mock_touch.assert_not_called()
+
+
+class TestEnsureH264:
+    """_ensure_h264 re-encodes non-H.264 videos in-place."""
+
+    def test_no_action_for_h264(self):
+        """If codec is already h264, no ffmpeg call is made."""
+        from src.collectors.video_clipper import _ensure_h264
+
+        ffprobe_result = _make_completed_process(returncode=0)
+        ffprobe_result.stdout = "h264"
+
+        with patch("subprocess.run", return_value=ffprobe_result) as mock_run:
+            _ensure_h264("/some/path.mp4", "vid1")
+
+        # Only ffprobe called, no ffmpeg
+        assert mock_run.call_count == 1
+
+    def test_reencodes_av1_to_h264(self):
+        """AV1-encoded video triggers ffmpeg re-encode."""
+        from src.collectors.video_clipper import _ensure_h264
+
+        ffprobe_result = _make_completed_process(returncode=0)
+        ffprobe_result.stdout = "av1"
+        ffmpeg_result = _make_completed_process(returncode=0)
+
+        call_count = {"n": 0}
+
+        def _run(cmd, **kwargs):
+            call_count["n"] += 1
+            return ffprobe_result if call_count["n"] == 1 else ffmpeg_result
+
+        with (
+            patch("subprocess.run", side_effect=_run),
+            patch("os.replace") as mock_replace,
+            patch("os.path.exists", return_value=True),
+        ):
+            _ensure_h264("/some/path.mp4", "vid1")
+
+        assert call_count["n"] == 2  # ffprobe + ffmpeg
+        mock_replace.assert_called_once()
+
+    def test_empty_codec_skips_reencode(self):
+        """Empty ffprobe output (codec unknown) doesn't attempt re-encode."""
+        from src.collectors.video_clipper import _ensure_h264
+
+        ffprobe_result = _make_completed_process(returncode=0)
+        ffprobe_result.stdout = ""
+
+        with patch("subprocess.run", return_value=ffprobe_result) as mock_run:
+            _ensure_h264("/some/path.mp4", "vid1")
+
+        assert mock_run.call_count == 1  # only ffprobe, no ffmpeg
 
 
 # ---------------------------------------------------------------------------
