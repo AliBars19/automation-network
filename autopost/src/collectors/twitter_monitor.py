@@ -114,6 +114,10 @@ class TwitterMonitorCollector(BaseCollector):
         self.niche = niche
         self.username = config["account_id"]
         self.is_retweet_source = config.get("retweet", False)
+        # Player/creator accounts post mix of personal + GD content.
+        # require_relevance=True applies the niche keyword filter to their tweets
+        # without converting them to retweet sources (they keep monitored_tweet format).
+        self._require_relevance = config.get("require_relevance", False)
 
     async def collect(self) -> list[RawContent]:
         client = await get_api()
@@ -314,8 +318,9 @@ class TwitterMonitorCollector(BaseCollector):
                 if rt_match:
                     clean_text = clean_text[rt_match.end():]
 
-            # Relevance gate: retweet sources must be on-topic
-            if self.is_retweet_source and not is_relevant(clean_text, self.niche):
+            # Relevance gate: retweet sources + player accounts must be on-topic
+            needs_relevance = self.is_retweet_source or self._require_relevance
+            if needs_relevance and not is_relevant(clean_text, self.niche):
                 logger.debug(
                     f"[TwitterMonitor] @{self.username} tweet {tweet_id} "
                     f"failed relevance filter — skipping"
