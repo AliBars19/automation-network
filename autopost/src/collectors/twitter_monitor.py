@@ -66,6 +66,9 @@ _GD_RELEVANCE: set[str] = {
     # Known community figures (scoped names)
     "dashword", "gd colon", "wulzy", "npesta",
     "aeonair", "viprin", "doggie", "neiro",
+    # Player completion / progress signals (common in player tweets)
+    "100%", "attempts", " demon", "verified by",
+    "top 1 ", "stream ", "new hardest",
     # Scoped records / stats
     "gd world record", "demon list top",
     # Hashtags
