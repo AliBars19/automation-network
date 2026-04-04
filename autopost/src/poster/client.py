@@ -11,6 +11,7 @@ import tweepy
 from loguru import logger
 
 from config.settings import DRY_RUN, NICHE_CREDENTIALS
+from src.collectors.video_clipper import _ensure_h264
 
 
 class TwitterClient:
@@ -128,6 +129,12 @@ class TwitterClient:
         # Use chunked upload for video files
         is_video = path.suffix.lower() in (".mp4", ".mov", ".webm")
         media_category = "tweet_video" if is_video else "tweet_image"
+
+        # Ensure video is H.264+AAC before uploading — cached clips downloaded
+        # before the format-selector fix may have AV1/VP9 video or Opus audio.
+        # _ensure_h264 is a no-op if codecs are already correct.
+        if is_video:
+            _ensure_h264(str(path), path.stem)
 
         for attempt in range(retries + 1):
             try:
