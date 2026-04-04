@@ -159,9 +159,11 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
     "official_tweet": [None],
 
     # ── Monitored account tweets (non-retweet — formatted as news) ──────────
+    # {title} = first 100 chars; {summary} = up to 200 chars of body
     "monitored_tweet": [
         "{title}",
         "{title}\n\n(via @{author})",
+        "{summary}\n\n(via @{author})",
     ],
 }
 
@@ -225,9 +227,11 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
     "robtop_tweet": [None],
 
     # ── Monitored account tweets (non-retweet — formatted as news) ──────────
+    # {title} = first 100 chars; {summary} = up to 200 chars of body
     "monitored_tweet": [
         "{title}",
         "{title}\n\nvia @{author}",
+        "{summary}\n\nvia @{author}",
     ],
 
     # ── Level rated ───────────────────────────────────────────────────────────
