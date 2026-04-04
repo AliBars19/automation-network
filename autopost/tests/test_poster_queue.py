@@ -1229,6 +1229,38 @@ class TestPostsInLast30Min:
 
         assert count == 0
 
+    def test_iso8601_t_format_old_post_not_counted(self):
+        """Posts stored with ISO 8601 'T' separator from hours ago must NOT be counted.
+
+        Regression test: SQLite's datetime('now') uses space separator, but the
+        app stores posted_at as '%Y-%m-%dT%H:%M:%SZ' (T separator).  Without
+        datetime() normalization, 'T' > ' ' in ASCII causes ALL stored timestamps
+        to appear > the cutoff, triggering the 30-min safety cap falsely.
+        """
+        from src.poster.queue import _posts_in_last_30min
+        from datetime import datetime, timezone, timedelta
+
+        conn = _make_in_memory_db()
+        queue_id = _insert_queue_row(conn)
+
+        # Insert a post from 8 hours ago using the T-format the app actually writes
+        eight_hours_ago = (
+            datetime.now(timezone.utc) - timedelta(hours=8)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn.execute(
+            """INSERT INTO post_log (tweet_queue_id, niche, tweet_id, tweet_text, posted_at)
+               VALUES (?, 'rocketleague', 'tweet_old_iso', 'text', ?)""",
+            (queue_id, eight_hours_ago),
+        )
+        conn.commit()
+
+        with patch("src.poster.queue.get_db", return_value=_ctx(conn)):
+            count = _posts_in_last_30min("rocketleague")
+
+        assert count == 0, (
+            "An 8-hour-old ISO 8601 post should not be counted in the 30-min window"
+        )
+
 
 # ── post_next — 30-min safety cap ────────────────────────────────────────────
 

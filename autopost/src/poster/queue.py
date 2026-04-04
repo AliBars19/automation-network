@@ -216,7 +216,7 @@ def _posts_in_last_30min(niche: str) -> int:
         row = conn.execute(
             """SELECT COUNT(*) AS cnt FROM post_log
                WHERE niche = ? AND tweet_id IS NOT NULL
-                 AND posted_at >= datetime('now', '-30 minutes')""",
+                 AND datetime(posted_at) >= datetime('now', '-30 minutes')""",
             (niche,),
         ).fetchone()
     return row["cnt"]
