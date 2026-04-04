@@ -437,27 +437,26 @@ class TestClipYoutubeVideoLiveStream:
 
 
 class TestEnsureH264:
-    """_ensure_h264 re-encodes non-H.264 videos in-place."""
+    """_ensure_h264 re-encodes videos that have incompatible codecs for Twitter."""
 
-    def test_no_action_for_h264(self):
-        """If codec is already h264, no ffmpeg call is made."""
+    def test_no_action_for_h264_aac(self):
+        """H.264 video + AAC audio → no re-encode needed."""
         from src.collectors.video_clipper import _ensure_h264
 
         ffprobe_result = _make_completed_process(returncode=0)
-        ffprobe_result.stdout = "h264"
+        ffprobe_result.stdout = "h264\naac"
 
         with patch("subprocess.run", return_value=ffprobe_result) as mock_run:
             _ensure_h264("/some/path.mp4", "vid1")
 
-        # Only ffprobe called, no ffmpeg
-        assert mock_run.call_count == 1
+        assert mock_run.call_count == 1  # only ffprobe, no ffmpeg
 
-    def test_reencodes_av1_to_h264(self):
-        """AV1-encoded video triggers ffmpeg re-encode."""
+    def test_reencodes_av1_video(self):
+        """AV1 video codec triggers re-encode even if audio is already AAC."""
         from src.collectors.video_clipper import _ensure_h264
 
         ffprobe_result = _make_completed_process(returncode=0)
-        ffprobe_result.stdout = "av1"
+        ffprobe_result.stdout = "av1\naac"
         ffmpeg_result = _make_completed_process(returncode=0)
 
         call_count = {"n": 0}
@@ -473,7 +472,31 @@ class TestEnsureH264:
         ):
             _ensure_h264("/some/path.mp4", "vid1")
 
-        assert call_count["n"] == 2  # ffprobe + ffmpeg
+        assert call_count["n"] == 2
+        mock_replace.assert_called_once()
+
+    def test_reencodes_opus_audio(self):
+        """H.264 video + Opus audio triggers re-encode (Twitter rejects Opus)."""
+        from src.collectors.video_clipper import _ensure_h264
+
+        ffprobe_result = _make_completed_process(returncode=0)
+        ffprobe_result.stdout = "h264\nopus"
+        ffmpeg_result = _make_completed_process(returncode=0)
+
+        call_count = {"n": 0}
+
+        def _run(cmd, **kwargs):
+            call_count["n"] += 1
+            return ffprobe_result if call_count["n"] == 1 else ffmpeg_result
+
+        with (
+            patch("subprocess.run", side_effect=_run),
+            patch("os.replace") as mock_replace,
+            patch("os.path.exists", return_value=True),
+        ):
+            _ensure_h264("/some/path.mp4", "vid1")
+
+        assert call_count["n"] == 2  # ffprobe + ffmpeg re-encode
         mock_replace.assert_called_once()
 
     def test_empty_codec_skips_reencode(self):

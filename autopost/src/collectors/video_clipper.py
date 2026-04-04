@@ -114,27 +114,37 @@ def clip_youtube_video(video_url: str, video_id: str) -> str | None:
 
 
 def _ensure_h264(mp4_path: str, video_id: str) -> None:
-    """Re-encode mp4_path in-place to H.264+AAC if the video stream isn't H.264.
+    """Re-encode mp4_path in-place to H.264+AAC when needed.
 
-    Twitter only accepts H.264 video.  AV1 and VP9 are common on YouTube but
-    cause a '400 Your media IDs are invalid' error at tweet-creation time.
+    Twitter requires H.264 video AND AAC audio.
+    AV1/VP9 video and Opus audio (common on YouTube) both cause
+    '400 Your media IDs are invalid — Incompatible audio/video' at tweet time.
     """
     try:
         probe = subprocess.run(
             [
                 "ffprobe", "-v", "quiet",
-                "-select_streams", "v:0",
                 "-show_entries", "stream=codec_name",
                 "-of", "csv=p=0",
                 mp4_path,
             ],
             capture_output=True, text=True, timeout=15,
         )
-        codec = probe.stdout.strip()
-        if not codec or codec == "h264":
-            return  # already correct
+        codecs = [c.strip() for c in probe.stdout.strip().splitlines() if c.strip()]
+        video_codec = codecs[0] if codecs else ""
+        audio_codec = codecs[1] if len(codecs) > 1 else ""
 
-        logger.info(f"[VideoClipper] re-encoding {video_id} from {codec} → H.264")
+        needs_reencode = (
+            (video_codec and video_codec != "h264")
+            or (audio_codec and audio_codec != "aac")
+        )
+        if not needs_reencode:
+            return
+
+        logger.info(
+            f"[VideoClipper] re-encoding {video_id}: "
+            f"video={video_codec or '?'} audio={audio_codec or '?'} → H.264+AAC"
+        )
         tmp_path = mp4_path + ".tmp.mp4"
         encode = subprocess.run(
             [
