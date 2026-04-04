@@ -11,6 +11,7 @@ The cookies file needs refreshing every 3-6 months.
 """
 import os
 import subprocess
+import threading
 from pathlib import Path
 
 from loguru import logger
@@ -21,6 +22,11 @@ _CLIP_DURATION = 30  # seconds to clip from the start
 _MAX_HEIGHT = 720    # max video resolution (720p keeps file size reasonable)
 _MAX_FILE_MB = 50    # abort if file exceeds this
 _COOKIES_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "cookies.txt"
+
+# Serialize ffmpeg re-encodes — concurrent encodes saturate the droplet CPU
+# and cause 180s timeout failures.  One encode at a time is fast enough
+# since clips with wrong codecs will be rare after the format selector fix.
+_ENCODE_SEM = threading.Semaphore(1)
 
 
 def clip_youtube_video(video_url: str, video_id: str) -> str | None:
@@ -146,15 +152,16 @@ def _ensure_h264(mp4_path: str, video_id: str) -> None:
             f"video={video_codec or '?'} audio={audio_codec or '?'} → H.264+AAC"
         )
         tmp_path = mp4_path + ".tmp.mp4"
-        encode = subprocess.run(
-            [
-                "ffmpeg", "-y", "-i", mp4_path,
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "128k",
-                tmp_path,
-            ],
-            capture_output=True, timeout=180,
-        )
+        with _ENCODE_SEM:  # serialize encodes — concurrent ffmpegs saturate the CPU
+            encode = subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", mp4_path,
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-c:a", "aac", "-b:a", "128k",
+                    tmp_path,
+                ],
+                capture_output=True, timeout=300,  # 5 min — allows for queue wait
+            )
         if encode.returncode == 0:
             os.replace(tmp_path, mp4_path)
         else:
