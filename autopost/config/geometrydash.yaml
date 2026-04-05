@@ -18,6 +18,7 @@ sources:
     account_id: _GeometryDash
     poll_interval: 300
     retweet: true
+    enabled: false  # 0 tweets collected all-time — account appears inactive
 
   - name: "@demonlistgd"
     type: twitter
@@ -30,6 +31,7 @@ sources:
     account_id: geode_sdk
     poll_interval: 600
     retweet: true
+    enabled: false  # 0 tweets collected all-time — SDK account rarely posts
 
   # ── News / intel accounts (monitored — formatted as news, not retweeted) ────
 
@@ -37,6 +39,7 @@ sources:
     type: twitter
     account_id: today_gd
     poll_interval: 300          # very active daily GD news account
+    enabled: false  # 0 tweets collected all-time — likely blocked from DO IP
 
   - name: "@DashwordGD"
     type: twitter
