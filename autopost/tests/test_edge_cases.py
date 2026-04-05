@@ -437,12 +437,19 @@ class TestSimilarityThresholds:
 class TestBuildContextFields:
     def test_all_universal_fields_present(self):
         ctx = _build_context(_rc(title="T", url="U", body="B", author="A"))
+        # "event" and "event_short" are intentionally NOT universal defaults —
+        # they are only set when metadata explicitly provides them.
         for field in ("title", "url", "headline", "summary", "details",
                       "description", "author", "emoji", "bullet1", "bullet2",
-                      "bullet3", "event", "player", "creator", "brand",
+                      "bullet3", "player", "creator", "brand",
                       "items", "achievement", "context", "level", "level_name",
                       "changes", "mod_name"):
             assert field in ctx, f"Missing field: {field}"
+
+    def test_event_absent_without_metadata(self):
+        ctx = _build_context(_rc(title="T", url="U", body="B", author="A"))
+        assert "event" not in ctx
+        assert "event_short" not in ctx
 
     def test_version_only_when_found(self):
         ctx = _build_context(_rc(title="No version here"))

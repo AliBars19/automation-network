@@ -276,10 +276,6 @@ def _build_context(content: RawContent) -> dict:
         "bullet2":    bullet2,
         "bullet3":    bullet3,
 
-        # ── Esports (title-derived only) ──────────────────────────────────────
-        "event":       title,
-        "event_short": title[:30],
-
         # ── Season / highlights (body-derived) ────────────────────────────────
         "highlights":  summary,
         "highlight1":  bullet1,
