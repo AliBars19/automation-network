@@ -35,6 +35,15 @@ _GD_OFF_TOPIC_RE = re.compile(
     re.I,
 )
 
+# Titles that indicate an ongoing series episode — not newsworthy as standalone posts
+_SERIES_RE = re.compile(
+    r"\bday\s+\d+\s+of\b"    # "Day 14 of Racing @MizuRL"
+    r"|\bepisode\s+\d+\b"     # "Episode 23"
+    r"|\bep\.?\s*\d+\b"       # "Ep. 7" / "Ep 7"
+    r"|#\d+\s*[:\|]",         # "#14 | doing stuff" / "#3:"
+    re.I,
+)
+
 
 def _is_short_or_low_quality(title: str, description: str) -> bool:
     """Return True if the video looks like a YouTube Short or low-effort content."""
@@ -155,6 +164,11 @@ class YouTubeCollector(BaseCollector):
             # or "#Shorts" / "#Short" in title/description.
             if _is_short_or_low_quality(title, description):
                 logger.debug(f"[YouTube] skipping Short/low-quality: {title[:60]}")
+                continue
+
+            # Skip ongoing series episodes — not newsworthy as standalone posts
+            if _SERIES_RE.search(title):
+                logger.debug(f"[YouTube] skipping series episode: {title[:60]}")
                 continue
 
             # For GD niche: skip videos about merch, vlogs, or other games
