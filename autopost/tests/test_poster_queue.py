@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.collectors.base import BaseCollector, RawContent
+from src.poster.client import TransientPostError
 from src.poster.queue import (
     _PRIORITY,
     _DEFAULT_PRIORITY,
@@ -473,11 +474,11 @@ class TestPostNext:
         assert row["status"] == "posted"
 
     def test_marks_failed_when_post_tweet_returns_none(self):
-        """If post_tweet returns None, row should be marked failed."""
+        """If post_tweet raises TransientPostError, row should be marked failed."""
         conn = _make_in_memory_db()
         _insert_queue_row(conn, priority=5, text="Failing tweet")
         client = MagicMock()
-        client.post_tweet.return_value = None
+        client.post_tweet.side_effect = TransientPostError("API error")
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),
@@ -521,7 +522,7 @@ class TestPostNext:
         conn = _make_in_memory_db()
         _insert_queue_row(conn, text="RETWEET:66666", priority=2)
         client = MagicMock()
-        client.quote_tweet.return_value = None
+        client.quote_tweet.side_effect = TransientPostError("API error")
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),
@@ -1544,11 +1545,11 @@ class TestPostNextQuoteSignal:
         assert row["status"] == "posted"
 
     def test_quote_signal_marks_failed_when_quote_tweet_returns_none(self):
-        """QUOTE: signal where quote_tweet fails should mark row failed."""
+        """QUOTE: signal where quote_tweet raises TransientPostError should mark row failed."""
         conn = _make_in_memory_db()
         _insert_queue_row(conn, text="QUOTE:22222:Big news dropping soon for fans", priority=2)
         client = MagicMock()
-        client.quote_tweet.return_value = None
+        client.quote_tweet.side_effect = TransientPostError("API error")
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),

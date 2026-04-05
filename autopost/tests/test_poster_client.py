@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch, call
 import pytest
 import tweepy
 
-from src.poster.client import TwitterClient
+from src.poster.client import TwitterClient, TransientPostError
 
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
@@ -90,9 +90,8 @@ class TestPostTweetLive:
         client._client = MagicMock()
         client._client.create_tweet.side_effect = tweepy.TweepyException("403 Forbidden")
 
-        result = client.post_tweet("Will fail")
-
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("Will fail")
 
     def test_includes_media_ids_when_upload_succeeds(self):
         client = _live_client()

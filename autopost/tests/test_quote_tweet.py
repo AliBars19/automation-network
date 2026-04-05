@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import tweepy
 
-from src.poster.client import TwitterClient
+from src.poster.client import TwitterClient, TransientPostError
 from src.poster.queue import post_next
 
 
@@ -99,9 +99,8 @@ class TestQuoteTweetClient:
         client._client = MagicMock()
         client._client.create_tweet.side_effect = tweepy.TweepyException("403")
 
-        result = client.quote_tweet("12345", "This will fail")
-
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("12345", "This will fail")
 
 
 # ── post_next() with QUOTE: signal ──────────────────────────────────────────
@@ -187,11 +186,11 @@ class TestQuoteTweetQueue:
         assert result is False
 
     def test_marks_failed_when_quote_tweet_returns_none(self):
-        """If quote_tweet returns None, row should be marked failed."""
+        """If quote_tweet raises TransientPostError, row should be marked failed."""
         conn = _make_db()
         _insert_queue(conn, "QUOTE:22222:Good stuff", priority=3)
         client = MagicMock()
-        client.quote_tweet.return_value = None
+        client.quote_tweet.side_effect = TransientPostError("API error")
 
         with (
             patch("src.poster.queue.get_db", return_value=_ctx(conn)),

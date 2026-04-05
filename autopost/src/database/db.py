@@ -190,6 +190,22 @@ def mark_failed(conn: sqlite3.Connection, queue_id: int, error: str) -> None:
     )
 
 
+def mark_rejected(conn: sqlite3.Connection, queue_id: int, error: str) -> None:
+    """Mark a queue row as permanently rejected by Twitter (e.g. 400 Bad Request).
+
+    Sets status='failed' but does NOT write to post_log, so the consecutive-
+    failure backoff counter is NOT incremented. Use this for content-level
+    rejections where the API is healthy but the tweet text was invalid.
+    Contrast with mark_failed() which writes to post_log and triggers backoff.
+    """
+    now = _utcnow()
+    conn.execute(
+        "UPDATE tweet_queue SET status = 'failed', posted_at = ? WHERE id = ?",
+        (now, queue_id),
+    )
+    logger.debug(f"[db] queue item {queue_id} rejected (no backoff): {error[:80]}")
+
+
 def mark_skipped(conn: sqlite3.Connection, queue_id: int) -> None:
     """Mark a queue row as skipped (e.g. duplicate detected late, rate limit)."""
     conn.execute(

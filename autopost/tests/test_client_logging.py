@@ -16,6 +16,8 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 import tweepy
 
+from src.poster.client import PermanentPostError, TransientPostError
+
 
 # ---------------------------------------------------------------------------
 # Helpers to build a patched TwitterClient without real credentials
@@ -140,26 +142,30 @@ def _make_create_tweet_response(tweet_id: str = "123456") -> MagicMock:
 
 
 class TestReturnValues:
-    def test_bad_request_returns_none(self, rl_client_and_log):
+    def test_bad_request_raises_permanent_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        assert client.post_tweet("hello") is None
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("hello")
 
-    def test_too_many_requests_returns_none(self, rl_client_and_log):
+    def test_too_many_requests_raises_transient_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        assert client.post_tweet("hello") is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
 
-    def test_generic_tweepy_exception_returns_none(self, rl_client_and_log):
+    def test_generic_tweepy_exception_raises_transient_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("boom")
-        assert client.post_tweet("hello") is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
 
-    def test_forbidden_subclass_returns_none(self, rl_client_and_log):
+    def test_forbidden_subclass_raises_transient_error(self, rl_client_and_log):
         """tweepy.Forbidden is a subclass of TweepyException — must fall through to the generic handler."""
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.Forbidden(MagicMock())
-        assert client.post_tweet("hello") is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
 
     def test_success_returns_tweet_id_string(self, rl_client_and_log):
         client, _ = rl_client_and_log
@@ -199,21 +205,24 @@ class TestLogLevels:
     def test_bad_request_logs_at_error(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("some tweet")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("some tweet")
         mock_log.error.assert_called_once()
         mock_log.warning.assert_not_called()
 
     def test_too_many_requests_logs_at_warning(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("some tweet")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("some tweet")
         mock_log.warning.assert_called_once()
         mock_log.error.assert_not_called()
 
     def test_generic_tweepy_exception_logs_at_error(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("oops")
-        client.post_tweet("some tweet")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("some tweet")
         mock_log.error.assert_called_once()
         mock_log.warning.assert_not_called()
 
@@ -221,7 +230,8 @@ class TestLogLevels:
         """Forbidden is not rate-limiting — must be ERROR, not WARNING."""
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.Forbidden(MagicMock())
-        client.post_tweet("some tweet")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("some tweet")
         mock_log.error.assert_called_once()
         mock_log.warning.assert_not_called()
 
@@ -248,14 +258,16 @@ class TestTweetTextInLog:
     def test_bad_request_log_contains_tweet_text(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("breaking news headline")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("breaking news headline")
         log_msg = mock_log.error.call_args[0][0]
         assert "breaking news headline" in log_msg
 
     def test_generic_exception_log_contains_tweet_text(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("server error")
-        client.post_tweet("another tweet body")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("another tweet body")
         log_msg = mock_log.error.call_args[0][0]
         assert "another tweet body" in log_msg
 
@@ -263,7 +275,8 @@ class TestTweetTextInLog:
         """The 429 warning is intentionally brief — just verify it doesn't crash."""
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("this text need not appear in the 429 log")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("this text need not appear in the 429 log")
         mock_log.warning.assert_called_once()
 
     def test_bad_request_log_contains_char_count(self, rl_client_and_log):
@@ -271,7 +284,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
         text = "x" * 50
-        client.post_tweet(text)
+        with pytest.raises(PermanentPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         assert "50" in log_msg
 
@@ -279,21 +293,24 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
         text = "y" * 30
-        client.post_tweet(text)
+        with pytest.raises(TransientPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         assert "30" in log_msg
 
     def test_bad_request_log_contains_400_string(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "400" in log_msg
 
     def test_too_many_requests_log_contains_429_string(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.warning.call_args[0][0]
         assert "429" in log_msg
 
@@ -302,7 +319,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
         text = "a" * 120
-        client.post_tweet(text)
+        with pytest.raises(PermanentPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         # repr of 120-char string is "'aaa...aaa'" — all 120 a's present
         assert "a" * 120 in log_msg
@@ -311,7 +329,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
         text = "a" * 120 + "Z"  # 121 chars; the Z must not appear
-        client.post_tweet(text)
+        with pytest.raises(PermanentPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         assert "Z" not in log_msg
 
@@ -319,7 +338,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
         text = "b" * 120 + "Q"
-        client.post_tweet(text)
+        with pytest.raises(TransientPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         assert "Q" not in log_msg
 
@@ -327,7 +347,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
         text = "c" * 500
-        client.post_tweet(text)
+        with pytest.raises(PermanentPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         # 120 c's inside repr quotes = 122 chars of c-sequences
         assert "c" * 120 in log_msg
@@ -338,22 +359,22 @@ class TestTweetTextInLog:
     def test_empty_text_does_not_crash_bad_request(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        result = client.post_tweet("")
-        assert result is None
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("")
         mock_log.error.assert_called_once()
 
     def test_empty_text_does_not_crash_generic_exception(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        result = client.post_tweet("")
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("")
         mock_log.error.assert_called_once()
 
     def test_unicode_emoji_text_does_not_crash(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        result = client.post_tweet("🚀 GD update 🎮 great news 🔥")
-        assert result is None
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("🚀 GD update 🎮 great news 🔥")
         mock_log.error.assert_called_once()
 
     def test_repr_escaping_present_in_bad_request_log(self, rl_client_and_log):
@@ -361,7 +382,8 @@ class TestTweetTextInLog:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
         text = "line1\nline2"
-        client.post_tweet(text)
+        with pytest.raises(PermanentPostError):
+            client.post_tweet(text)
         log_msg = mock_log.error.call_args[0][0]
         # !r escapes the newline to \\n inside the repr
         assert "\\n" in log_msg
@@ -369,27 +391,30 @@ class TestTweetTextInLog:
     def test_text_with_special_sql_chars_does_not_crash(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        result = client.post_tweet("'; DROP TABLE tweets; --")
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("'; DROP TABLE tweets; --")
 
     def test_niche_name_in_bad_request_log(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "rocketleague" in log_msg
 
     def test_niche_name_in_generic_exception_log(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        client.post_tweet("hello")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "rocketleague" in log_msg
 
     def test_niche_name_in_too_many_requests_log(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.warning.call_args[0][0]
         assert "rocketleague" in log_msg
 
@@ -403,21 +428,24 @@ class TestNicheInLog:
     def test_geometrydash_niche_in_bad_request_log(self, gd_client_and_log):
         client, mock_log = gd_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("GD news")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("GD news")
         log_msg = mock_log.error.call_args[0][0]
         assert "geometrydash" in log_msg
 
     def test_geometrydash_niche_in_too_many_requests_log(self, gd_client_and_log):
         client, mock_log = gd_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("GD news")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("GD news")
         log_msg = mock_log.warning.call_args[0][0]
         assert "geometrydash" in log_msg
 
     def test_geometrydash_niche_in_generic_exception_log(self, gd_client_and_log):
         client, mock_log = gd_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        client.post_tweet("GD news")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("GD news")
         log_msg = mock_log.error.call_args[0][0]
         assert "geometrydash" in log_msg
 
@@ -465,24 +493,25 @@ class TestDryRun:
 
 
 class TestReplyTo:
-    def test_reply_to_bad_request_returns_none(self, rl_client_and_log):
+    def test_reply_to_bad_request_raises_permanent_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        result = client.post_tweet("reply text", reply_to="000111")
-        assert result is None
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("reply text", reply_to="000111")
 
     def test_reply_to_bad_request_logs_tweet_text(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("this is the reply body", reply_to="000111")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("this is the reply body", reply_to="000111")
         log_msg = mock_log.error.call_args[0][0]
         assert "this is the reply body" in log_msg
 
-    def test_reply_to_too_many_requests_returns_none(self, rl_client_and_log):
+    def test_reply_to_too_many_requests_raises_transient_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        result = client.post_tweet("reply text", reply_to="000111")
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.post_tweet("reply text", reply_to="000111")
 
     def test_reply_to_success_passes_in_reply_to_tweet_id(self, rl_client_and_log):
         client, _ = rl_client_and_log
@@ -536,35 +565,37 @@ class TestMediaAttachment:
 
 
 class TestQuoteTweetExceptions:
-    def test_quote_tweet_bad_request_returns_none(self, rl_client_and_log):
-        """quote_tweet catches TweepyException which covers BadRequest."""
+    def test_quote_tweet_bad_request_raises_permanent_error(self, rl_client_and_log):
+        """quote_tweet raises PermanentPostError on BadRequest."""
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        result = client.quote_tweet("orig_id", "quote text")
-        assert result is None
+        with pytest.raises(PermanentPostError):
+            client.quote_tweet("orig_id", "quote text")
 
-    def test_quote_tweet_too_many_requests_returns_none(self, rl_client_and_log):
+    def test_quote_tweet_too_many_requests_raises_transient_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        result = client.quote_tweet("orig_id", "quote text")
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("orig_id", "quote text")
 
-    def test_quote_tweet_generic_exception_returns_none(self, rl_client_and_log):
+    def test_quote_tweet_generic_exception_raises_transient_error(self, rl_client_and_log):
         client, _ = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        result = client.quote_tweet("orig_id", "quote text")
-        assert result is None
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("orig_id", "quote text")
 
     def test_quote_tweet_exception_logs_error(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        client.quote_tweet("orig_id", "quote text")
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("orig_id", "quote text")
         mock_log.error.assert_called_once()
 
     def test_quote_tweet_error_log_contains_original_tweet_id(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        client.quote_tweet("tweet_abc_123", "quote text")
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("tweet_abc_123", "quote text")
         log_msg = mock_log.error.call_args[0][0]
         assert "tweet_abc_123" in log_msg
 
@@ -595,7 +626,8 @@ class TestQuoteTweetExceptions:
     def test_quote_tweet_niche_in_error_log(self, gd_client_and_log):
         client, mock_log = gd_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("err")
-        client.quote_tweet("some_id", "gd text")
+        with pytest.raises(TransientPostError):
+            client.quote_tweet("some_id", "gd text")
         log_msg = mock_log.error.call_args[0][0]
         assert "geometrydash" in log_msg
 
@@ -614,10 +646,10 @@ class TestIntegrationSequences:
             _make_create_tweet_response("200"),
         ]
         r1 = client.post_tweet("first")
-        r2 = client.post_tweet("second")
-        r3 = client.post_tweet("third")
         assert r1 == "100"
-        assert r2 is None
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("second")
+        r3 = client.post_tweet("third")
         assert r3 == "200"
 
     def test_bad_request_followed_by_success_error_count_correct(self, rl_client_and_log):
@@ -626,7 +658,8 @@ class TestIntegrationSequences:
             tweepy.BadRequest(MagicMock()),
             _make_create_tweet_response("999"),
         ]
-        client.post_tweet("fail")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("fail")
         client.post_tweet("succeed")
         assert mock_log.error.call_count == 1
 
@@ -634,7 +667,8 @@ class TestIntegrationSequences:
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
         for _ in range(3):
-            client.post_tweet("rate limited")
+            with pytest.raises(TransientPostError):
+                client.post_tweet("rate limited")
         assert mock_log.warning.call_count == 3
         mock_log.error.assert_not_called()
 
@@ -643,14 +677,16 @@ class TestIntegrationSequences:
         client, mock_log = rl_client_and_log
         exc = tweepy.BadRequest(MagicMock())
         client._client.create_tweet.side_effect = exc
-        client.post_tweet("hello")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "error:" in log_msg
 
     def test_exception_message_appears_in_generic_exception_log(self, rl_client_and_log):
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TweepyException("my special error msg")
-        client.post_tweet("hello")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "my special error msg" in log_msg
 
@@ -658,7 +694,8 @@ class TestIntegrationSequences:
         """The log must contain the phrase 'permanent failure' to distinguish from retryable."""
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.BadRequest(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(PermanentPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.error.call_args[0][0]
         assert "permanent" in log_msg.lower()
 
@@ -666,6 +703,7 @@ class TestIntegrationSequences:
         """The 429 warning should hint at retry semantics."""
         client, mock_log = rl_client_and_log
         client._client.create_tweet.side_effect = tweepy.TooManyRequests(MagicMock())
-        client.post_tweet("hello")
+        with pytest.raises(TransientPostError):
+            client.post_tweet("hello")
         log_msg = mock_log.warning.call_args[0][0]
         assert "retry" in log_msg.lower()

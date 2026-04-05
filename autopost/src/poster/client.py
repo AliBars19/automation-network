@@ -14,6 +14,16 @@ from config.settings import DRY_RUN, NICHE_CREDENTIALS
 from src.collectors.video_clipper import _ensure_h264
 
 
+class PermanentPostError(Exception):
+    """Twitter rejected the tweet permanently (400 Bad Request).
+    Re-posting the same content will not succeed — skip without backoff."""
+
+
+class TransientPostError(Exception):
+    """Posting failed transiently (429 rate-limit, 5xx, network error).
+    The caller should back off and may retry later."""
+
+
 class TwitterClient:
     """
     Thin wrapper around tweepy.Client (v2 API) + tweepy.API (v1.1 for media).
@@ -92,16 +102,16 @@ class TwitterClient:
                 f"  text ({len(text)} chars): {text[:120]!r}\n"
                 f"  error: {exc}"
             )
-            return None
+            raise PermanentPostError(str(exc)) from exc
         except tweepy.TooManyRequests as exc:
             logger.warning(f"[{self.niche}] 429 rate-limited — will retry later: {exc}")
-            return None
+            raise TransientPostError(str(exc)) from exc
         except tweepy.TweepyException as exc:
             logger.error(
                 f"[{self.niche}] failed to post tweet: {exc}\n"
                 f"  text ({len(text)} chars): {text[:120]!r}"
             )
-            return None
+            raise TransientPostError(str(exc)) from exc
 
     def quote_tweet(self, tweet_id: str, text: str) -> str | None:
         """
@@ -122,9 +132,15 @@ class TwitterClient:
             new_id = str(response.data["id"])
             logger.success(f"[{self.niche}] quote-tweeted {tweet_id} → {new_id}")
             return new_id
+        except tweepy.BadRequest as exc:
+            logger.error(f"[{self.niche}] 400 Bad Request on quote-tweet {tweet_id}: {exc}")
+            raise PermanentPostError(str(exc)) from exc
+        except tweepy.TooManyRequests as exc:
+            logger.warning(f"[{self.niche}] 429 rate-limited on quote-tweet: {exc}")
+            raise TransientPostError(str(exc)) from exc
         except tweepy.TweepyException as exc:
             logger.error(f"[{self.niche}] failed to quote-tweet {tweet_id}: {exc}")
-            return None
+            raise TransientPostError(str(exc)) from exc
 
     # ── Media ──────────────────────────────────────────────────────────────────
 

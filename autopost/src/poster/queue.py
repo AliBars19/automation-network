@@ -31,12 +31,13 @@ from src.database.db import (
     is_similar_story,
     mark_failed,
     mark_posted,
+    mark_rejected,
     mark_skipped,
     url_already_queued,
 )
 from src.formatter.formatter import format_tweet
 from src.formatter.media import prepare_media
-from src.poster.client import TwitterClient
+from src.poster.client import PermanentPostError, TransientPostError, TwitterClient
 from src.poster.quality_gate import passes_quality_gate
 from src.poster.rate_limiter import (
     can_post,
@@ -309,14 +310,17 @@ def post_next(niche: str, client: TwitterClient) -> bool:
                 return False
             # Quote-tweet with a source-aware context line instead of pure RT
             context = _retweet_context(niche, source_account)
-            new_id = client.quote_tweet(original_id, context)
-            if new_id:
-                mark_posted(conn, queue_id, new_id)
-                return True
-            else:
-                mark_failed(conn, queue_id, f"quote-tweet {original_id} failed")
+            try:
+                new_id = client.quote_tweet(original_id, context)
+            except PermanentPostError as exc:
+                mark_rejected(conn, queue_id, str(exc))
+                return False
+            except TransientPostError as exc:
+                mark_failed(conn, queue_id, str(exc))
                 _check_failure_alert(niche)
                 return False
+            mark_posted(conn, queue_id, new_id)
+            return True
 
         if text.startswith("QUOTE:"):
             # Format: QUOTE:{tweet_id}:{commentary text}
@@ -330,36 +334,50 @@ def post_next(niche: str, client: TwitterClient) -> bool:
             if not original_id.isdigit() or not commentary:
                 mark_failed(conn, queue_id, f"invalid QUOTE id/text: {original_id!r}")
                 return False
-            new_id = client.quote_tweet(original_id, commentary)
-            if new_id:
-                mark_posted(conn, queue_id, new_id)
-                return True
-            else:
-                mark_failed(conn, queue_id, f"quote-tweet {original_id} failed")
+            try:
+                new_id = client.quote_tweet(original_id, commentary)
+            except PermanentPostError as exc:
+                mark_rejected(conn, queue_id, str(exc))
+                return False
+            except TransientPostError as exc:
+                mark_failed(conn, queue_id, str(exc))
                 _check_failure_alert(niche)
                 return False
+            mark_posted(conn, queue_id, new_id)
+            return True
 
         # Split URL to self-reply: inline links tank algorithmic reach
         # (30-50% penalty). Post the main text first, then reply with
         # "Read more: {url}" so the link doesn't penalize the main tweet.
         main_text, url = _split_url(text)
-        tweet_id = client.post_tweet(text=main_text, media_path=row["media_path"])
-        if tweet_id:
-            # Post URL as a self-reply with context label
-            if url:
-                client.post_tweet(text=f"Read more: {url}", reply_to=tweet_id)
-            # For high-priority content, add a follow-up engagement reply.
-            # Conversation depth (replies) is weighted 13.5x in the X algorithm.
-            elif is_breaking:
-                followup = _engagement_followup(niche)
-                if followup:
-                    client.post_tweet(text=followup, reply_to=tweet_id)
-            mark_posted(conn, queue_id, tweet_id)
-            return True
-        else:
-            mark_failed(conn, queue_id, "TwitterClient.post_tweet returned None")
+        try:
+            tweet_id = client.post_tweet(text=main_text, media_path=row["media_path"])
+        except PermanentPostError as exc:
+            # Content rejected by Twitter — mark dead, don't trigger backoff
+            mark_rejected(conn, queue_id, str(exc))
+            return False
+        except TransientPostError as exc:
+            # API issue — trigger backoff so we don't hammer a rate-limited API
+            mark_failed(conn, queue_id, str(exc))
             _check_failure_alert(niche)
             return False
+
+        # Main tweet posted — secondary calls (URL reply, followup) are best-effort.
+        # If they fail we don't un-mark the main tweet; just log and move on.
+        if url:
+            try:
+                client.post_tweet(text=f"Read more: {url}", reply_to=tweet_id)
+            except (PermanentPostError, TransientPostError) as exc:
+                logger.warning(f"[{niche}] URL self-reply failed (main tweet posted): {exc}")
+        elif is_breaking:
+            followup = _engagement_followup(niche)
+            if followup:
+                try:
+                    client.post_tweet(text=followup, reply_to=tweet_id)
+                except (PermanentPostError, TransientPostError) as exc:
+                    logger.warning(f"[{niche}] engagement reply failed (main tweet posted): {exc}")
+        mark_posted(conn, queue_id, tweet_id)
+        return True
 
 
 def _check_failure_alert(niche: str) -> None:
