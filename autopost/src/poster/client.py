@@ -86,8 +86,21 @@ class TwitterClient:
             logger.success(f"[{self.niche}] posted tweet {tweet_id}")
             return tweet_id
 
+        except tweepy.BadRequest as exc:
+            logger.error(
+                f"[{self.niche}] 400 Bad Request — permanent failure\n"
+                f"  text ({len(text)} chars): {text[:120]!r}\n"
+                f"  error: {exc}"
+            )
+            return None
+        except tweepy.TooManyRequests as exc:
+            logger.warning(f"[{self.niche}] 429 rate-limited — will retry later: {exc}")
+            return None
         except tweepy.TweepyException as exc:
-            logger.error(f"[{self.niche}] failed to post tweet: {exc}")
+            logger.error(
+                f"[{self.niche}] failed to post tweet: {exc}\n"
+                f"  text ({len(text)} chars): {text[:120]!r}"
+            )
             return None
 
     def quote_tweet(self, tweet_id: str, text: str) -> str | None:
