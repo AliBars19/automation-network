@@ -144,6 +144,11 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{creator}: \"{video_title}\"\n\n{url}",
         "NEW: {creator} — \"{video_title}\"\n\n{url}",
         "{creator} just dropped \"{video_title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
+        "New upload from {creator}: \"{video_title}\"\n\n{url}",
+        "Worth watching — {creator}: \"{video_title}\"\n\n{url}",
+        "{creator} is back with: \"{video_title}\"\n\n{url}",
+        "Latest from {creator}: \"{video_title}\"\n\n{url}",
     ],
 
     # ── Pro player content (disabled -- bot signal) ──────────────────────────
@@ -164,6 +169,9 @@ RL_TEMPLATES: dict[str, list[str | None]] = {
         "{title}",
         "{title}\n\n(via @{author})",
         "{summary}\n\n(via @{author})",
+        "Breaking from @{author}: {title}",
+        "{summary}",
+        "From @{author}: {title}",
     ],
 }
 
@@ -203,6 +211,10 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "\"{level}\" has been verified by {player}, placed at No. {position} on the Demon List.",
         "{player} verifies \"{level}\" — No. {position} on the Demon List.",
         "New verified demon: \"{level}\" by {player} (No. {position}).",
+        "No. {position} on the Demon List has been verified: \"{level}\" by {player}.",
+        "{player} verifies \"{level}\" after {attempts} attempts (No. {position}).",
+        "\"{level}\" is now verified — No. {position}, {attempts} attempts by {player}.",
+        "Verification complete: \"{level}\" by {player} at No. {position} on the list.",
     ],
 
     # ── Level beaten (new victor) ──────────────────────────────────────────────
@@ -214,6 +226,10 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "{player} becomes the {victor_number} person to beat \"{level}\".",
         "{player} has beaten \"{level}\" (No. {position}).",
         "New completion: {player} beats \"{level}\" after {attempts} attempts.",
+        "No. {position}: {player} has beaten \"{level}\" after {attempts} attempts.",
+        "{player} adds their name to the victor list for \"{level}\" (No. {position}).",
+        "\"{level}\" beaten by {player} — {attempts} attempts, No. {position}.",
+        "{victor_number} victor on \"{level}\": {player} ({attempts} attempts).",
     ],
 
     # ── Game update ────────────────────────────────────────────────────────────
@@ -232,6 +248,9 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "{title}",
         "{title}\n\nvia @{author}",
         "{summary}\n\nvia @{author}",
+        "Breaking from @{author}: {title}",
+        "{summary}",
+        "From @{author}: {title}",
     ],
 
     # ── Level rated ───────────────────────────────────────────────────────────
@@ -246,6 +265,10 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "Today's Daily Level: \"{level_name}\" by {creator}. {difficulty}.",
         "\"{level_name}\" by {creator} is today's Daily Level. {difficulty}.",
         "Daily Level: \"{level_name}\" by {creator} ({difficulty}, {stars} stars).",
+        "{difficulty} daily: \"{level_name}\" by {creator}.",
+        "Daily Level out now — \"{level_name}\" by {creator} ({difficulty}).",
+        "Today's daily is \"{level_name}\" by {creator}. {stars} stars, {difficulty}.",
+        "\"{level_name}\" ({difficulty}) is today's Daily Level.",
     ],
 
     # ── Weekly demon ───────────────────────────────────────────────────────────
@@ -253,6 +276,10 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "This week's Weekly Demon: \"{level_name}\" by {creator}. {difficulty}.",
         "\"{level_name}\" by {creator} is this week's Weekly Demon. {difficulty}.",
         "Weekly Demon: \"{level_name}\" by {creator} ({difficulty}, {stars} stars).",
+        "{difficulty} weekly: \"{level_name}\" by {creator}.",
+        "Weekly Demon out now — \"{level_name}\" by {creator} ({difficulty}).",
+        "This week's demon is \"{level_name}\" by {creator}. {stars} stars.",
+        "\"{level_name}\" ({difficulty}) is this week's Weekly Demon.",
     ],
 
     # ── Geode SDK / mod loader release (github.py) ────────────────────────────
@@ -271,6 +298,9 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "New update for \"{mod_name}\" ({version}).\n\n{description}\n\n{url}",
         "{mod_name} {version} is now available on the Geode mod index.\n\n{description}\n\n{url}",
         "\"{mod_name}\" {version} — {description}\n\n{url}",
+        "{description} — \"{mod_name}\" updated to {version}.\n\n{url}",
+        "{mod_name} just got an update: {version}.\n\n{description}\n\n{url}",
+        "Geode mod update: \"{mod_name}\" {version}.\n\n{description}\n\n{url}",
     ],
 
     # ── YouTube video uploads ─────────────────────────────────────────────────
@@ -278,6 +308,11 @@ GD_TEMPLATES: dict[str, list[str | None]] = {
         "{creator}: \"{video_title}\"\n\n{url}",
         "NEW: {creator} — \"{video_title}\"\n\n{url}",
         "{creator} just dropped \"{video_title}\"\n\n{url}",
+        "{creator} dropped a new video: \"{video_title}\"\n\n{url}",
+        "New upload from {creator}: \"{video_title}\"\n\n{url}",
+        "Worth watching — {creator}: \"{video_title}\"\n\n{url}",
+        "{creator} is back with: \"{video_title}\"\n\n{url}",
+        "Latest from {creator}: \"{video_title}\"\n\n{url}",
     ],
 
     # ── Creator spotlight ─────────────────────────────────────────────────────

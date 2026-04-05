@@ -18,7 +18,7 @@ import httpx
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from src.collectors.base import BaseCollector, RawContent
+from src.collectors.base import BaseCollector, NICHE_TOPIC_WORDS, RawContent
 from src.collectors.url_utils import is_safe_url as _is_safe_url
 
 _HEADERS = {
@@ -35,15 +35,10 @@ _MIN_TITLE = 15     # ignore headings shorter than this
 class ScraperCollector(BaseCollector):
     """Fetches a URL and extracts headline/link pairs as RawContent items."""
 
-    # Multi-topic sites that include trending/sidebar articles from other sections.
-    # Scraped headlines from these domains must pass niche keyword filtering.
-    _MULTI_TOPIC_DOMAINS = {"dexerto.com", "theloadout.com", "esports-news.co.uk"}
-
     def __init__(self, source_id: int, config: dict, niche: str):
         super().__init__(source_id, config)
         self.niche = niche
         self.url   = config.get("url", "")
-        self._needs_topic_filter = any(d in self.url for d in self._MULTI_TOPIC_DOMAINS)
 
     async def collect(self) -> list[RawContent]:
         if not self.url:
@@ -56,16 +51,15 @@ class ScraperCollector(BaseCollector):
 
         items = _parse(html, self.url, self.source_id, self.niche)
 
-        # Filter off-topic headlines from multi-topic sites (e.g. Dexerto trending
-        # sidebar that mixes Invincible, Minecraft, etc. into the RL page).
-        if self._needs_topic_filter:
-            before = len(items)
-            items = [item for item in items if _is_on_topic(item.title, item.body, self.niche)]
-            if before != len(items):
-                logger.info(
-                    f"[Scraper] {self.url[:60]}: topic filter removed "
-                    f"{before - len(items)}/{before} off-topic headlines"
-                )
+        # Filter off-topic headlines — applied universally to catch entertainment
+        # crossover articles (e.g. "The Boys Season 5") on any scraped source.
+        before = len(items)
+        items = [item for item in items if _is_on_topic(item.title, item.body, self.niche)]
+        if before != len(items):
+            logger.info(
+                f"[Scraper] {self.url[:60]}: topic filter removed "
+                f"{before - len(items)}/{before} off-topic headlines"
+            )
 
         if not items and len(html) > 1000:
             logger.warning(f"[Scraper] {self.url[:60]}: 0 headlines from {len(html)} bytes — HTML structure may have changed")
@@ -234,32 +228,16 @@ def _classify(text: str, niche: str) -> str:
     return "breaking_news"
 
 
-# ── Topic filter (shared with RSS collector logic) ───────────────────────────
-
-_RL_TOPIC_WORDS = {
-    "rocket league", "rlcs", "psyonix", "octane", "fennec", "dominus",
-    "aerial", "flip reset", "grand champ", "supersonic legend",
-    "item shop", "rocket pass", "rl esports", "rl update",
-}
-_GD_TOPIC_WORDS = {
-    "geometry dash", "geometrydash", "robtop", "demon list", "demonlist",
-    "extreme demon", "pointercrate", "geode", "gdbrowser", "daily level",
-    "weekly demon",
-}
-_NICHE_TOPIC: dict[str, set[str]] = {
-    "rocketleague": _RL_TOPIC_WORDS,
-    "geometrydash": _GD_TOPIC_WORDS,
-}
-
+# ── Topic filter ─────────────────────────────────────────────────────────────
 
 def _is_on_topic(title: str, body: str, niche: str) -> bool:
     """Return True if a scraped headline is relevant to the niche.
 
-    Multi-topic sites (Dexerto, Loadout) include trending/sidebar articles
-    from other games and entertainment.  This filter catches off-topic
-    content like Invincible, Minecraft, and The Boys before it reaches the queue.
+    Applied universally — not just to known multi-topic domains — to catch
+    off-topic entertainment crossover articles (e.g. "The Boys Season 5")
+    from any scraped source.
     """
-    keywords = _NICHE_TOPIC.get(niche)
+    keywords = NICHE_TOPIC_WORDS.get(niche)
     if not keywords:
         return True
     haystack = (title + " " + body).lower()

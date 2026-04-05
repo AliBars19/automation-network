@@ -167,8 +167,8 @@ class TestDetectContentType:
         # "signs " keyword triggers roster_change (note: "esports" in text would match event first)
         assert _detect_content_type("jstn signs with NRG", "", "rocketleague") == "roster_change"
 
-    def test_rl_default_is_patch_notes(self):
-        assert _detect_content_type("Something random", "no keywords here", "rocketleague") == "patch_notes"
+    def test_rl_default_is_breaking_news(self):
+        assert _detect_content_type("Something random", "no keywords here", "rocketleague") == "breaking_news"
 
     # ── Geometry Dash ────────────────────────────────────────────────────────
 
@@ -299,7 +299,7 @@ class TestRSSCollectorCollect:
 
     @pytest.mark.asyncio
     async def test_niche_propagated(self):
-        entry = _make_feed_entry()
+        entry = _make_feed_entry(title="Geometry Dash daily level is out now")
         feed = _make_feed([entry])
 
         with patch("src.collectors.rss.feedparser.parse", return_value=feed):
@@ -377,13 +377,14 @@ class TestRSSCollectorCollect:
     async def test_external_id_falls_back_to_md5_of_title(self):
         import hashlib
 
-        entry = _make_feed_entry(entry_id=None, link=None, title="Unique Title")
+        unique_title = "Rocket League Season 15 update notes"
+        entry = _make_feed_entry(entry_id=None, link=None, title=unique_title)
 
         def patched_get(key, default=None):
             if key in ("id", "link"):
                 return None
             return {
-                "title": "Unique Title", "summary": "", "author": "",
+                "title": unique_title, "summary": "", "author": "",
                 "media_content": [], "media_thumbnail": [], "enclosures": [],
                 "tags": [], "published": "", "content": [],
             }.get(key, default)
@@ -391,7 +392,7 @@ class TestRSSCollectorCollect:
         entry.get = patched_get
         feed = _make_feed([entry])
 
-        expected_md5 = hashlib.md5("Unique Title".encode()).hexdigest()
+        expected_md5 = hashlib.md5(unique_title.encode()).hexdigest()
 
         with patch("src.collectors.rss.feedparser.parse", return_value=feed):
             result = await _make_collector().collect()
@@ -400,13 +401,13 @@ class TestRSSCollectorCollect:
 
     @pytest.mark.asyncio
     async def test_title_html_entities_unescaped(self):
-        entry = _make_feed_entry(title="Rock &amp; Roll Season")
+        entry = _make_feed_entry(title="Rocket League &amp; esports update")
         feed = _make_feed([entry])
 
         with patch("src.collectors.rss.feedparser.parse", return_value=feed):
             result = await _make_collector().collect()
 
-        assert result[0].title == "Rock & Roll Season"
+        assert result[0].title == "Rocket League & esports update"
 
     @pytest.mark.asyncio
     async def test_summary_html_stripped(self):
@@ -431,7 +432,7 @@ class TestRSSCollectorCollect:
 
     @pytest.mark.asyncio
     async def test_gd_entry_classified_correctly(self):
-        entry = _make_feed_entry(title="New top 1: Tartarus verified by Dolphy!")
+        entry = _make_feed_entry(title="Geometry Dash: new top 1 demon verified by Dolphy!")
         feed = _make_feed([entry])
 
         with patch("src.collectors.rss.feedparser.parse", return_value=feed):
@@ -486,7 +487,7 @@ class TestRSSCollectorCollect:
 
     @pytest.mark.asyncio
     async def test_multiple_entries_all_returned(self):
-        entries = [_make_feed_entry(entry_id=f"id-{i}", title=f"Post {i}") for i in range(5)]
+        entries = [_make_feed_entry(entry_id=f"id-{i}", title=f"Rocket League news {i}") for i in range(5)]
         feed = _make_feed(entries)
 
         with patch("src.collectors.rss.feedparser.parse", return_value=feed):

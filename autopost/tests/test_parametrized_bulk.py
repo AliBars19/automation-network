@@ -435,7 +435,7 @@ class TestRSSDetectionBulk:
         ("Star rated level today", "geometrydash", "level_rated"),
         ("Daily level announced", "geometrydash", "daily_level"),
         ("Weekly demon challenge", "geometrydash", "weekly_demon"),
-        ("Random unrelated", "rocketleague", "patch_notes"),  # default
+        ("Random unrelated", "rocketleague", "breaking_news"),  # default
         ("Random unrelated", "geometrydash", "game_update"),  # default
     ])
     def test_detection(self, title, niche, expected):

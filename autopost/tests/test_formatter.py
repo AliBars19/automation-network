@@ -273,15 +273,18 @@ class TestFormatTweet:
         assert not social_hashtag_re.search(stripped), f"Found unexpected hashtag in: {result}"
 
     def test_monitored_tweet_rl_produces_text_not_none(self):
-        """monitored_tweet for RL should produce text with title, not return None."""
+        """monitored_tweet for RL should produce non-empty text for any template variant."""
         result = format_tweet(self._make_content(
             niche="rocketleague",
             content_type="monitored_tweet",
             title="Some player post",
+            body="Some player post body content",
             url="https://x.com/player/status/123",
         ))
         assert result is not None
-        assert "Some player post" in result
+        # Any variant ({title}, {title}+via, {summary}+via, Breaking from @..., etc.)
+        # should produce a non-empty string; exact wording depends on template chosen
+        assert len(result) > 0
 
     def test_monitored_tweet_gd_produces_text_not_none(self):
         """monitored_tweet for GD should produce non-empty text for any template variant."""

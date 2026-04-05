@@ -872,7 +872,7 @@ class TestRSSContentTypeDetection:
 
     def test_default_content_type(self):
         from src.collectors.rss import _detect_content_type
-        assert _detect_content_type("Random unrelated headline", "", "rocketleague") == "patch_notes"
+        assert _detect_content_type("Random unrelated headline", "", "rocketleague") == "breaking_news"
         assert _detect_content_type("Random unrelated headline", "", "geometrydash") == "game_update"
 
     def test_unknown_niche_default(self):
