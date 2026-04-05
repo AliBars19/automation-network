@@ -28,6 +28,19 @@ _CONV_PREFIX_PATTERN = re.compile(
     re.I,
 )
 
+# French text detection — hoisted from per-tweet loop for performance
+import unicodedata as _unicodedata
+
+_FR_WORDS = re.compile(
+    r"\b(?:les|des|est|pour|dans|cette|avec|nous|mais|sont"
+    r"|le|la|une|du|au|ce|se|ne|pas|qui|que|sur|aussi"
+    r"|tout|fait|comme|très|plus|mdr|mdrrr|ptdr|allez"
+    r"|commence|furieux|victoire|équipe|incroyable"
+    r"|magnifique|parcours|défaite|soirée|début"
+    r"|rendez|retrouve)\b", re.I
+)
+_FR_PREFIXES = ("c'est", "l'open", "l'", "d'", "n'", "j'", "qu'")
+
 from src.collectors.base import BaseCollector, RawContent
 from src.collectors.twscrape_pool import OP_USER_TWEETS, get_api, resolve_user_id
 
@@ -259,20 +272,10 @@ class TwitterMonitorCollector(BaseCollector):
 
             # Text-based French detection — scoring approach.
             # Strip emojis first so they don't break word boundary checks.
-            import unicodedata
             _fr_clean = "".join(
                 c for c in text.lower()
-                if unicodedata.category(c) not in ("So", "Sk", "Cf")
+                if _unicodedata.category(c) not in ("So", "Sk", "Cf")
             )
-            _FR_WORDS = re.compile(
-                r"\b(?:les|des|est|pour|dans|cette|avec|nous|mais|sont"
-                r"|le|la|une|du|au|ce|se|ne|pas|qui|que|sur|aussi"
-                r"|tout|fait|comme|très|plus|mdr|mdrrr|ptdr|allez"
-                r"|commence|furieux|victoire|équipe|incroyable"
-                r"|magnifique|parcours|défaite|soirée|début"
-                r"|rendez|retrouve)\b", re.I
-            )
-            _FR_PREFIXES = ("c'est", "l'open", "l'", "d'", "n'", "j'", "qu'")
             fr_score = len(_FR_WORDS.findall(_fr_clean))
             fr_score += sum(1 for p in _FR_PREFIXES if p in _fr_clean)
             if fr_score >= 2:

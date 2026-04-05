@@ -1,15 +1,11 @@
 """
 Reddit clip collector — monitors gaming subreddits for high-quality video posts.
 
-Uses Reddit's OAuth API (oauth.reddit.com) via asyncpraw. This bypasses
-the IP-based blocking that Reddit applies to unauthenticated .json endpoints
-on datacenter IPs (like DigitalOcean).
-
-Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in .env.
-Register a "script" app at https://www.reddit.com/prefs/apps
+Uses cookie-based httpx requests. Reddit's unauthenticated .json endpoints
+are used directly.
 
 Video pipeline:
-  1. Fetch /r/{subreddit}/hot via asyncpraw (OAuth2 authenticated)
+  1. Fetch /r/{subreddit}/hot.json
   2. Filter by score threshold (500+ upvotes for RL, 400+ for GD)
   3. Download video from v.redd.it (separate audio + video streams)
   4. Merge with ffmpeg into a single mp4
@@ -109,8 +105,6 @@ class RedditClipCollector(BaseCollector):
             author = data.get("author", "unknown")
             permalink = data.get("permalink", "")
             post_id = data.get("id", "")
-            thumbnail = data.get("thumbnail", "")
-
             # Download video — use permalink URL (yt-dlp handles v.redd.it natively)
             reddit_url = f"https://www.reddit.com{permalink}" if permalink else video_url
             media_path = await _download_reddit_video(reddit_url, post_id)

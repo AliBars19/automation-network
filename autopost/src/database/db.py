@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Generator
 
 from config.settings import DB_PATH
+from loguru import logger
 
 
 # ── Connection ─────────────────────────────────────────────────────────────────

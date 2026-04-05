@@ -398,7 +398,6 @@ def _check_failure_alert(niche: str) -> None:
 
 
 import random
-import re
 
 _URL_RE = re.compile(r"https?://\S+")
 
