@@ -42,7 +42,7 @@ _DAILY_CAPS: dict[str, int] = {
     "viral_moment":      1,
     "official_tweet":    6,
     "robtop_tweet":      6,
-    "youtube_video":     4,
+    "youtube_video":     6,
     "flashback":         1,
     "demon_list_update": 4,
     "level_verified":    4,
