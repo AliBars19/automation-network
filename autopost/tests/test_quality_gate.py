@@ -167,8 +167,8 @@ class TestDailyCapBoundaryValues:
     def test_robtop_tweet_cap_is_six(self):
         assert _DAILY_CAPS["robtop_tweet"] == 6
 
-    def test_youtube_video_cap_is_four(self):
-        assert _DAILY_CAPS["youtube_video"] == 4
+    def test_youtube_video_cap_is_six(self):
+        assert _DAILY_CAPS["youtube_video"] == 6
 
     def test_flashback_cap_is_one(self):
         assert _DAILY_CAPS["flashback"] == 1

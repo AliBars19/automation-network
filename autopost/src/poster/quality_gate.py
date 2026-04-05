@@ -35,7 +35,7 @@ _COMMUNITY_TYPES: set[str] = {
 _DAILY_CAPS: dict[str, int] = {
     "community_clip":    3,
     "reddit_clip":       4,
-    "monitored_tweet":   6,
+    "monitored_tweet":   8,
     "rank_milestone":    1,
     "stat_milestone":    1,
     "creator_spotlight": 2,

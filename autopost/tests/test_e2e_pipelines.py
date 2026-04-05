@@ -1232,13 +1232,13 @@ class TestQualityGatePipeline:
             )
         conn.commit()
 
-    def test_daily_cap_blocks_seventh_monitored_tweet(self):
+    def test_daily_cap_blocks_ninth_monitored_tweet(self):
         """
-        After 6 monitored_tweets are queued today, a 7th must be rejected by
-        passes_quality_gate. Daily cap for monitored_tweet is 6.
+        After 8 monitored_tweets are queued today, a 9th must be rejected by
+        passes_quality_gate. Daily cap for monitored_tweet is 8.
         """
         conn = _make_db()
-        self._seed_post_log(conn, "rocketleague", "monitored_tweet", 6)
+        self._seed_post_log(conn, "rocketleague", "monitored_tweet", 8)
 
         with patch("src.poster.quality_gate.get_db", return_value=_ctx(conn)):
             result = passes_quality_gate(
@@ -1248,10 +1248,10 @@ class TestQualityGatePipeline:
             )
         assert result is False
 
-    def test_daily_cap_allows_sixth_monitored_tweet(self):
-        """5 queued so far → the 6th must still pass."""
+    def test_daily_cap_allows_eighth_monitored_tweet(self):
+        """7 queued so far → the 8th must still pass."""
         conn = _make_db()
-        self._seed_post_log(conn, "rocketleague", "monitored_tweet", 5)
+        self._seed_post_log(conn, "rocketleague", "monitored_tweet", 7)
 
         with patch("src.poster.quality_gate.get_db", return_value=_ctx(conn)):
             result = passes_quality_gate(
@@ -1326,9 +1326,9 @@ class TestQualityGatePipeline:
             assert passes_quality_gate("top1_verified", "geometrydash", score=0) is True
 
     def test_youtube_video_daily_cap_enforced(self):
-        """After 4 youtube_videos queued today, a 5th must be rejected (cap=4)."""
+        """After 6 youtube_videos queued today, a 7th must be rejected (cap=6)."""
         conn = _make_db()
-        self._seed_post_log(conn, "geometrydash", "youtube_video", 4)
+        self._seed_post_log(conn, "geometrydash", "youtube_video", 6)
 
         with patch("src.poster.quality_gate.get_db", return_value=_ctx(conn)):
             result = passes_quality_gate(
